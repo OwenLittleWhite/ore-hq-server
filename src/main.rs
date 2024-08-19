@@ -523,7 +523,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                             let mut ixs = vec![];
                             // let prio_fee = { app_prio_fee.lock().await.clone() };
                             // TODO
-                            let prio_fee = priority_fee.clone().lock().await.clone();
+                            let prio_fee = args.priority_fee;
 
                             info!("using priority fee of {}", prio_fee);
                             let _ = app_all_clients_sender.send(MessageInternalAllClients {
