@@ -779,7 +779,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     let len = shared_state.sockets.len();
                     // 计算每个矿工的收益
                     for (pubkey, (miner_id, supplied_diff, pubkey_hashpower, old_earn)) in
-                        msg.submissions.iter()
+                        msg.submissions.iter_mut()
                     {
                         let hashpower_percent = (*pubkey_hashpower as u128)
                             .saturating_mul(1_000_000)
