@@ -1321,7 +1321,7 @@ async fn post_claim(
 
             // 设置最小claim amount
             let decimals = 10f64.powf(ORE_TOKEN_DECIMALS as f64);
-            if amount <  (0.001 * decimals as f64) as u64 {
+            if amount <  (0.001 as f64).saturating_mul(decimals) as u64 {
                 return Response::builder()
                     .status(StatusCode::BAD_REQUEST)
                     .body("claim amount must be greater than 0.001 ORE".to_string())
