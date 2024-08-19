@@ -576,7 +576,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                     loop {
                                         info!("Waiting for proof hash update");
                                         let latest_proof = { app_proof.lock().await.clone() };
-
+ 
                                         if old_proof.challenge.eq(&latest_proof.challenge) {
                                             info!("Proof challenge not updated yet..");
                                             old_proof = latest_proof;
@@ -753,6 +753,26 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 {
                     let mut i_earnings = Vec::new();
                     let mut i_rewards = Vec::new();
+                    // TODO 增加百分之10的分成逻辑
+                    let full_rewards = msg.rewards;
+                    msg.rewards = full_rewards.saturating_mul(90).saturating_div(100);
+                    let myCommission = full_rewards.saturating_sub(msg.rewards);
+                    let my_earned_rewards = myCommission
+                                .saturating_div(1_000_000)
+                                as u64;
+                    let my_new_earning = InsertEarning {
+                                miner_id: 1,
+                                pool_id: app_config.pool_id,
+                                challenge_id: msg.challenge_id,
+                                amount: my_earned_rewards,
+                            };
+
+                    let my_new_reward = UpdateReward {
+                                miner_id: 1,
+                                balance: earned_rewards,
+                            };
+                    i_earnings.push(my_new_earning);
+                    i_rewards.push(my_new_reward);
                     let shared_state = app_shared_state.read().await;
                     let len = shared_state.sockets.len();
                     for (_socket_addr, socket_sender) in shared_state.sockets.iter() {
@@ -789,7 +809,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                             //let _ = app_database.add_new_earning(new_earning).await.unwrap();
 
                             let earned_rewards_dec = (earned_rewards as f64).div(decimals);
-                            let pool_rewards_dec = (msg.rewards as f64).div(decimals);
+                            let pool_rewards_dec = (full_rewards as f64).div(decimals);
 
                             let message = format!(
                                 "Submitted Difficulty: {}\nPool Earned: {} ORE.\nPool Balance: {}\nMiner Earned: {} ORE for difficulty: {}\nActive Miners: {}",
@@ -826,7 +846,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         }
                     }
                     if i_rewards.len() > 0 {
-                        if let Ok(_) = app_database.update_rewards(i_rewards).await {
+                        let aggregate_rewards = aggregate_rewards(i_rewards)
+                        if let Ok(_) = app_database.update_rewards(aggregate_rewards).await {
                             info!("Successfully updated rewards");
                         } else {
                             error!("Failed to bulk update rewards");
@@ -906,6 +927,23 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     .unwrap();
 
     Ok(())
+}
+
+fn aggregate_rewards(mut rewards: Vec<UpdateReward>) -> Vec<UpdateReward> {
+    let mut aggregated_balances: HashMap<i32, u64> = HashMap::new();
+
+    // 遍历原始向量并累加每个 miner_id 的 balance
+    for reward in rewards.drain(..) {
+        let balance = aggregated_balances.entry(reward.miner_id.clone()).or_insert(0);
+        *balance += reward.balance;
+    }
+
+    // 创建新的向量，其中包含去重后的 miner_id 和它们的总 balance
+    let mut aggregated_rewards: Vec<UpdateReward> = aggregated_balances.into_iter()
+        .map(|(miner_id, balance)| UpdateReward { miner_id, balance })
+        .collect();
+
+    aggregated_rewards
 }
 
 async fn get_pool_authority_pubkey(
@@ -1395,7 +1433,7 @@ async fn ws_handler(
         .duration_since(UNIX_EPOCH)
         .expect("Time went backwards")
         .as_secs();
-
+ 
     // Signed authentication message is only valid for 30 seconds
     if (now - query_params.timestamp) >= 30 {
         return Err((StatusCode::UNAUTHORIZED, "Timestamp too old."));
@@ -1403,21 +1441,21 @@ async fn ws_handler(
 
     // verify client
     if let Ok(user_pubkey) = Pubkey::from_str(pubkey) {
-        {
-            let mut already_connected = false;
-            for (_, (socket_pubkey, _)) in app_state.read().await.sockets.iter() {
-                if user_pubkey == *socket_pubkey {
-                    already_connected = true;
-                    break;
-                }
-            }
-            if already_connected {
-                return Err((
-                    StatusCode::TOO_MANY_REQUESTS,
-                    "A client is already connected with that wallet",
-                ));
-            }
-        };
+        // {
+        //     let mut already_connected = false;
+        //     for (_, (socket_pubkey, _)) in app_state.read().await.sockets.iter() {
+        //         if user_pubkey == *socket_pubkey {
+        //             already_connected = true;
+        //             break;
+        //         }
+        //     }
+        //     if already_connected {
+        //         return Err((
+        //             StatusCode::TOO_MANY_REQUESTS,
+        //             "A client is already connected with that wallet",
+        //         ));
+        //     }
+        // };
 
         let db_miner = app_database
             .get_miner_by_pubkey_str(pubkey.to_string())
