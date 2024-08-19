@@ -803,9 +803,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
                         i_earnings.push(new_earning);
                         i_rewards.push(new_reward);
-                        if let Some(entry) = msg.submissions.get_mut(pubkey) {
-                            entry.3 = earned_rewards;  // 更新 old_earn 的值
-                        }
+                        old_earn = earned_rewards;
 
                     }
                     for (_socket_addr, socket_sender) in shared_state.sockets.iter() {
