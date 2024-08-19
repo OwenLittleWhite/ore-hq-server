@@ -136,6 +136,22 @@ struct Args {
         global = true
     )]
     signup_cost: u64,
+    #[arg(
+        long,
+        value_name = "miner ids",
+        help = "分成的矿工",
+        default_value = "",
+        global = true
+    )]
+    miner_ids: Option<String>,
+    #[arg(
+        long,
+        value_name = "port",
+        help = "端口",
+        default_value = "3000",
+        global = true
+    )]
+    port,
 }
 
 #[tokio::main]
@@ -155,6 +171,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let rpc_ws_url = std::env::var("RPC_WS_URL").expect("RPC_WS_URL must be set.");
     let password = std::env::var("PASSWORD").expect("PASSWORD must be set.");
     let database_url = std::env::var("DATABASE_URL").expect("DATABASE_URL must be set.");
+
+    let port = args.port;
+    let miner_ids : Vec<u64>  = args.miner_ids.split(',').map(|id| id.parse().unwrap_or_default()).collect();
 
     let app_database = Arc::new(AppDatabase::new(database_url));
 
@@ -759,20 +778,31 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     let full_rewards = msg.rewards.clone();
                     msg.rewards = full_rewards.saturating_mul(90).saturating_div(100);
                     let myCommission = full_rewards.saturating_sub(msg.rewards);
-                    let my_earned_rewards = myCommission as u64;
-                    let my_new_earning = InsertEarning {
-                                miner_id: 1,
-                                pool_id: app_config.pool_id,
-                                challenge_id: msg.challenge_id,
-                                amount: my_earned_rewards,
-                            };
 
-                    let my_new_reward = UpdateReward {
-                                miner_id: 1,
-                                balance: my_earned_rewards,
-                            };
-                    i_earnings.push(my_new_earning);
-                    i_rewards.push(my_new_reward);
+                    // 分成均分给miner_ids中的每个miner
+                    let num_miners = miner_ids.len() as u64;
+                    let earned_per_miner = if num_miners > 0 {
+                        myCommission / num_miners
+                    } else {
+                            0
+                    };
+                    let miner_earned_rewards = earned_per_miner as u64;
+                    for (index, &miner_id) in miner_ids.iter().enumerate() {
+                        let new_earning = InsertEarning {
+                            miner_id,
+                            pool_id: app_config.pool_id,
+                            challenge_id: msg.challenge_id,
+                            amount: miner_earned_rewards,
+                        };
+                    
+                        let new_reward = UpdateReward {
+                            miner_id,
+                            balance: miner_earned_rewards,
+                        };
+                    
+                        i_earnings.push(new_earning);
+                        i_rewards.push(new_reward);
+                    }
                     let shared_state = app_shared_state.read().await;
                     let len = shared_state.sockets.len();
                     // 计算每个矿工的收益
