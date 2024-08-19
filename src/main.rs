@@ -172,7 +172,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let password = std::env::var("PASSWORD").expect("PASSWORD must be set.");
     let database_url = std::env::var("DATABASE_URL").expect("DATABASE_URL must be set.");
 
-    let port = args.port;
+    let port = match args.port {
+        Some(port_str) => port_str.parse::<u16>()?,
+        None => 3000, // Default port if not provided
+    };
+
     let miner_ids : Vec<i32>  = args.miner_ids.split(',').map(|id| id.parse().unwrap_or_default()).collect();
 
     let app_database = Arc::new(AppDatabase::new(database_url));
@@ -789,7 +793,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     let miner_earned_rewards = earned_per_miner as u64;
                     for (index, &miner_id) in miner_ids.iter().enumerate() {
                         let new_earning = InsertEarning {
-                            miner_id: ,
+                            miner_id,
                             pool_id: app_config.pool_id,
                             challenge_id: msg.challenge_id,
                             amount: miner_earned_rewards,
