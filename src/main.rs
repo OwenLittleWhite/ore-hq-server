@@ -771,7 +771,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
                     let my_new_reward = UpdateReward {
                                 miner_id: 1,
-                                balance: earned_rewards,
+                                balance: my_earned_rewards,
                             };
                     i_earnings.push(my_new_earning);
                     i_rewards.push(my_new_reward);
