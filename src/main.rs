@@ -143,7 +143,7 @@ struct Args {
         default_value = "",
         global = true
     )]
-    miner_ids: Option<String>,
+    miner_ids: String,
     #[arg(
         long,
         value_name = "port",
