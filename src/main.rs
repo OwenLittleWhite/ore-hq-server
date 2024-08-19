@@ -756,7 +756,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     let mut i_earnings = Vec::new();
                     let mut i_rewards = Vec::new();
                     // TODO 增加百分之10的分成逻辑
-                    let full_rewards = msg.rewards;
+                    let full_rewards = msg.rewards.clone();
                     msg.rewards = full_rewards.saturating_mul(90).saturating_div(100);
                     let myCommission = full_rewards.saturating_sub(msg.rewards);
                     let my_earned_rewards = myCommission
@@ -803,7 +803,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
                         i_earnings.push(new_earning);
                         i_rewards.push(new_reward);
-                        old_earn = earned_rewards;
+                        *old_earn = earned_rewards;
 
                     }
                     for (_socket_addr, socket_sender) in shared_state.sockets.iter() {
@@ -1284,6 +1284,15 @@ async fn post_claim(
                 return Response::builder()
                     .status(StatusCode::BAD_REQUEST)
                     .body("claim amount exceeds miner rewards balance".to_string())
+                    .unwrap();
+            }
+
+            // 设置最小claim amount
+            let decimals = 10f64.powf(ORE_TOKEN_DECIMALS as f64);
+            if amount <  0.001 * decimals as u64 {
+                return Response::builder()
+                    .status(StatusCode::BAD_REQUEST)
+                    .body("claim amount must be greater than 0.001 ORE".to_string())
                     .unwrap();
             }
 
