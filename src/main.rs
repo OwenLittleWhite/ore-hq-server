@@ -93,7 +93,7 @@ pub enum ClientMessage {
 
 pub struct EpochHashes {
     best_hash: BestHash,
-    submissions: HashMap<Pubkey, (i32, u32, u64)>,
+    submissions: HashMap<Pubkey, (i32, u32, u64, u64)>,
 }
 
 pub struct BestHash {
