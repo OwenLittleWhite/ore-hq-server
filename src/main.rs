@@ -1755,7 +1755,7 @@ async fn client_message_handler_system(
                     drop(lock);
 
                     let nonce_range: Range<u64> = {
-                        if let Some(nr) = client_nonce_ranges.read().await.get(_addr.to_string()) {
+                        if let Some(nr) = client_nonce_ranges.read().await.get(&_addr.to_string()) {
                             nr.clone()
                         } else {
                             error!("Client nonce range not set!");
