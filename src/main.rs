@@ -1319,14 +1319,14 @@ async fn post_claim(
                     .unwrap();
             }
 
-            // 设置最小claim amount
-            let decimals = 10f64.powf(ORE_TOKEN_DECIMALS as f64);
-            if ((amount as f64).div(decimals) as f64) <  0.001 {
-                return Response::builder()
-                    .status(StatusCode::BAD_REQUEST)
-                    .body("claim amount must be greater than 0.001 ORE".to_string())
-                    .unwrap();
-            }
+            // // 设置最小claim amount
+            // let decimals = 10f64.powf(ORE_TOKEN_DECIMALS as f64);
+            // if ((amount as f64).div(decimals) as f64) <  0.001 {
+            //     return Response::builder()
+            //         .status(StatusCode::BAD_REQUEST)
+            //         .body("claim amount must be greater than 0.001 ORE".to_string())
+            //         .unwrap();
+            // }
 
             let ore_mint = get_ore_mint();
             let miner_token_account = get_associated_token_address(&user_pubkey, &ore_mint);
