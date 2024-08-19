@@ -68,7 +68,7 @@ const MIN_DIFF: u32 = 8;
 const MIN_HASHPOWER: u64 = 5;
 
 struct AppState {
-    sockets: HashMap<SocketAddr, (Pubkey, Arc<Mutex<SplitSink<WebSocket, Message>>>)>,
+    sockets: HashMap<SocketAddr, (Pubkey, Arc<Mutex<SplitSink<WebSocket, Message>>>, String)>,
 }
 
 pub struct MessageInternalAllClients {
