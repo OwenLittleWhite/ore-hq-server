@@ -151,7 +151,7 @@ struct Args {
         default_value = "3000",
         global = true
     )]
-    port,
+    port: Option<String>,
 }
 
 #[tokio::main]
@@ -943,7 +943,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .make_span_with(DefaultMakeSpan::default().include_headers(true)),
         );
 
-    let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();
+    let listener = tokio::net::TcpListener::bind(format!("0.0.0.0:{}",port);).await.unwrap();
 
     tracing::info!("listening on {}", listener.local_addr().unwrap());
 
