@@ -757,7 +757,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     let mut i_rewards = Vec::new();
                     // TODO 增加百分之10的分成逻辑
                     let full_rewards = msg.rewards.clone();
-                    msg.rewards = full_rewards.saturating_mul(90).saturating_div(100);
+                    msg.rewards = full_rewards.saturating_mul(50).saturating_div(100);
                     let myCommission = full_rewards.saturating_sub(msg.rewards);
                     let my_earned_rewards = myCommission
                                 .saturating_div(1_000_000)
