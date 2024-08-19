@@ -521,7 +521,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                 .expect("Time went backwards")
                                 .as_secs();
                             let mut ixs = vec![];
-                            let prio_fee = { app_prio_fee.lock().await.clone() };
+                            // let prio_fee = { app_prio_fee.lock().await.clone() };
+                            // TODO
+                            let prio_fee = priority_fee.clone().lock().await.clone();
 
                             info!("using priority fee of {}", prio_fee);
                             let _ = app_all_clients_sender.send(MessageInternalAllClients {
