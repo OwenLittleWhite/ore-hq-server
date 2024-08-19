@@ -81,7 +81,7 @@ pub struct MessageInternalMineSuccess {
     rewards: u64,
     challenge_id: i32,
     total_hashpower: u64,
-    submissions: HashMap<Pubkey, (i32, u32, u64)>,
+    submissions: HashMap<Pubkey, (i32, u32, u64, u64)>,
 }
 
 #[derive(Debug)]
@@ -488,7 +488,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     let mut bus = rand::thread_rng().gen_range(0..BUS_COUNT);
 
                     let mut success = false;
-                    for i in 0..10 {
+                    for i in 0..20 {
                         let reader = app_epoch_hashes.read().await;
                         let solution = reader.best_hash.solution.clone();
                         drop(reader);
@@ -777,39 +777,49 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     i_rewards.push(my_new_reward);
                     let shared_state = app_shared_state.read().await;
                     let len = shared_state.sockets.len();
-                    for (_socket_addr, socket_sender) in shared_state.sockets.iter() {
-                        let pubkey = socket_sender.0;
+                    // 计算每个矿工的收益
+                    for (pubkey, (miner_id, supplied_diff, pubkey_hashpower)) in
+                        msg.submissions.iter()
+                    {
+                        let hashpower_percent = (*pubkey_hashpower as u128)
+                            .saturating_mul(1_000_000)
+                            .saturating_div(msg.total_hashpower as u128);
 
-                        if let Some((miner_id, supplied_diff, pubkey_hashpower)) =
-                            msg.submissions.get(&pubkey)
-                        {
-                            let hashpower_percent = (*pubkey_hashpower as u128)
-                                .saturating_mul(1_000_000)
-                                .saturating_div(msg.total_hashpower as u128);
-
-                            // TODO: handle overflow/underflow and float imprecision issues
-                            let decimals = 10f64.powf(ORE_TOKEN_DECIMALS as f64);
-                            let earned_rewards = hashpower_percent
-                                .saturating_mul(msg.rewards as u128)
-                                .saturating_div(1_000_000)
-                                as u64;
-
-                            let new_earning = InsertEarning {
+                        // TODO: handle overflow/underflow and float imprecision issues
+                        let decimals = 10f64.powf(ORE_TOKEN_DECIMALS as f64);
+                        let earned_rewards = hashpower_percent
+                            .saturating_mul(msg.rewards as u128)
+                            .saturating_div(1_000_000)
+                            as u64;
+                        let new_earning = InsertEarning {
                                 miner_id: *miner_id,
                                 pool_id: app_config.pool_id,
                                 challenge_id: msg.challenge_id,
                                 amount: earned_rewards,
-                            };
+                        };
 
-                            let new_reward = UpdateReward {
+                        let new_reward = UpdateReward {
                                 miner_id: *miner_id,
                                 balance: earned_rewards,
-                            };
+                        };
 
-                            i_earnings.push(new_earning);
-                            i_rewards.push(new_reward);
-                            //let _ = app_database.add_new_earning(new_earning).await.unwrap();
+                        i_earnings.push(new_earning);
+                        i_rewards.push(new_reward);
 
+                        msg.submissions.insert(*pubkey, (
+                            *miner_id,
+                            *supplied_diff,
+                            *pubkey_hashpower,
+                            earned_rewards,
+                        ));
+
+                    }
+                    for (_socket_addr, socket_sender) in shared_state.sockets.iter() {
+                        let pubkey = socket_sender.0;
+
+                        if let Some((miner_id, supplied_diff, pubkey_hashpower, earned_rewards)) =
+                            msg.submissions.get(&pubkey)
+                        {
                             let earned_rewards_dec = (earned_rewards as f64).div(decimals);
                             let pool_rewards_dec = (full_rewards as f64).div(decimals);
 
@@ -848,8 +858,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         }
                     }
                     if i_rewards.len() > 0 {
-                        let aggregate_rewards = aggregate_rewards(i_rewards);
-                        if let Ok(_) = app_database.update_rewards(aggregate_rewards).await {
+                        if let Ok(_) = app_database.update_rewards(i_rewards).await {
                             info!("Successfully updated rewards");
                         } else {
                             error!("Failed to bulk update rewards");
@@ -1802,9 +1811,13 @@ async fn client_message_handler_system(
 
                                 {
                                     let mut epoch_hashes = epoch_hashes.write().await;
-                                    epoch_hashes
-                                        .submissions
-                                        .insert(pubkey, (miner.id, diff, hashpower));
+                                    if let Some((_, existing_diff, existing_hashpower)) = epoch_hashes.submissions.get(&pubkey) {
+                                        let new_diff = if diff > existing_diff { diff } else { existing_diff };
+                                        let new_hashpower = existing_hashpower + hashpower;
+                                        epoch_hashes.submissions.insert(pubkey, (miner.id, new_diff, new_hashpower));
+                                    } else {
+                                        epoch_hashes.submissions.insert(pubkey, (miner.id, diff, hashpower));
+                                    }
                                     if diff > epoch_hashes.best_hash.difficulty {
                                         epoch_hashes.best_hash.difficulty = diff;
                                         epoch_hashes.best_hash.solution = Some(solution);
