@@ -442,7 +442,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                             let _ = app_client_nonce_ranges
                                 .write()
                                 .await
-                                .insert(sender.0, nonce_range);
+                                .insert(sender.2, nonce_range);
                         });
                     }
                 }
@@ -1541,7 +1541,7 @@ async fn handle_socket(
     } else {
         app_state
             .sockets
-            .insert(who, (who_pubkey, Arc::new(Mutex::new(sender))));
+            .insert(who, (who_pubkey, Arc::new(Mutex::new(sender))), who.to_string());
     }
     drop(app_state);
 
@@ -1755,7 +1755,7 @@ async fn client_message_handler_system(
                     drop(lock);
 
                     let nonce_range: Range<u64> = {
-                        if let Some(nr) = client_nonce_ranges.read().await.get(&pubkey) {
+                        if let Some(nr) = client_nonce_ranges.read().await.get(_addr.to_string()) {
                             nr.clone()
                         } else {
                             error!("Client nonce range not set!");
