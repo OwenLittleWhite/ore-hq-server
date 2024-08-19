@@ -778,15 +778,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     let shared_state = app_shared_state.read().await;
                     let len = shared_state.sockets.len();
                     // 计算每个矿工的收益
-                    for (pubkey, (miner_id, supplied_diff, pubkey_hashpower)) in
+                    for (pubkey, (miner_id, supplied_diff, pubkey_hashpower, old_earn)) in
                         msg.submissions.iter()
                     {
                         let hashpower_percent = (*pubkey_hashpower as u128)
                             .saturating_mul(1_000_000)
                             .saturating_div(msg.total_hashpower as u128);
 
-                        // TODO: handle overflow/underflow and float imprecision issues
-                        let decimals = 10f64.powf(ORE_TOKEN_DECIMALS as f64);
                         let earned_rewards = hashpower_percent
                             .saturating_mul(msg.rewards as u128)
                             .saturating_div(1_000_000)
@@ -820,7 +818,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         if let Some((miner_id, supplied_diff, pubkey_hashpower, earned_rewards)) =
                             msg.submissions.get(&pubkey)
                         {
-                            let earned_rewards_dec = (earned_rewards as f64).div(decimals);
+                            // TODO: handle overflow/underflow and float imprecision issues
+                            let decimals = 10f64.powf(ORE_TOKEN_DECIMALS as f64);
+                            let earned_rewards_dec = (*earned_rewards as f64).div(decimals);
                             let pool_rewards_dec = (full_rewards as f64).div(decimals);
 
                             let message = format!(
@@ -1812,11 +1812,11 @@ async fn client_message_handler_system(
                                 {
                                     let mut epoch_hashes = epoch_hashes.write().await;
                                     if let Some((_, existing_diff, existing_hashpower)) = epoch_hashes.submissions.get(&pubkey) {
-                                        let new_diff = if diff > existing_diff { diff } else { existing_diff };
+                                        let new_diff = if diff > *existing_diff { diff } else { *existing_diff };
                                         let new_hashpower = existing_hashpower + hashpower;
-                                        epoch_hashes.submissions.insert(pubkey, (miner.id, new_diff, new_hashpower));
+                                        epoch_hashes.submissions.insert(pubkey, (miner.id, new_diff, new_hashpower, 0));
                                     } else {
-                                        epoch_hashes.submissions.insert(pubkey, (miner.id, diff, hashpower));
+                                        epoch_hashes.submissions.insert(pubkey, (miner.id, diff, hashpower, 0));
                                     }
                                     if diff > epoch_hashes.best_hash.difficulty {
                                         epoch_hashes.best_hash.difficulty = diff;
