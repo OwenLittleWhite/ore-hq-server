@@ -1721,7 +1721,7 @@ async fn client_message_handler_system(
     ready_clients: Arc<Mutex<HashSet<SocketAddr>>>,
     proof: Arc<Mutex<Proof>>,
     epoch_hashes: Arc<RwLock<EpochHashes>>,
-    client_nonce_ranges: Arc<RwLock<HashMap<Pubkey, Range<u64>>>>,
+    client_nonce_ranges: Arc<RwLock<HashMap<String, Range<u64>>>>,
     app_config: Arc<Config>,
 ) {
     while let Some(client_message) = receiver_channel.recv().await {
