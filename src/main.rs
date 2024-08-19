@@ -803,7 +803,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
                         i_earnings.push(new_earning);
                         i_rewards.push(new_reward);
-                        old_earn = earned_rewards;
+                        old_earn = &earned_rewards;
 
                     }
                     for (_socket_addr, socket_sender) in shared_state.sockets.iter() {
