@@ -803,13 +803,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
                         i_earnings.push(new_earning);
                         i_rewards.push(new_reward);
-
-                        msg.submissions.insert(*pubkey, (
-                            *miner_id,
-                            *supplied_diff,
-                            *pubkey_hashpower,
-                            earned_rewards,
-                        ));
+                        old_earn = earned_rewards;
 
                     }
                     for (_socket_addr, socket_sender) in shared_state.sockets.iter() {
@@ -1811,7 +1805,7 @@ async fn client_message_handler_system(
 
                                 {
                                     let mut epoch_hashes = epoch_hashes.write().await;
-                                    if let Some((_, existing_diff, existing_hashpower)) = epoch_hashes.submissions.get(&pubkey) {
+                                    if let Some((_, existing_diff, existing_hashpower, earned)) = epoch_hashes.submissions.get(&pubkey) {
                                         let new_diff = if diff > *existing_diff { diff } else { *existing_diff };
                                         let new_hashpower = existing_hashpower + hashpower;
                                         epoch_hashes.submissions.insert(pubkey, (miner.id, new_diff, new_hashpower, 0));
