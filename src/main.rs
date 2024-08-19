@@ -751,7 +751,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     tokio::spawn(async move {
         let app_database = app_app_database;
         loop {
-            while let Some(msg) = mine_success_receiver.recv().await {
+            while let Some(mut msg) = mine_success_receiver.recv().await {
                 {
                     let mut i_earnings = Vec::new();
                     let mut i_rewards = Vec::new();
@@ -848,7 +848,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         }
                     }
                     if i_rewards.len() > 0 {
-                        let aggregate_rewards = aggregate_rewards(i_rewards)
+                        let aggregate_rewards = aggregate_rewards(i_rewards);
                         if let Ok(_) = app_database.update_rewards(aggregate_rewards).await {
                             info!("Successfully updated rewards");
                         } else {
