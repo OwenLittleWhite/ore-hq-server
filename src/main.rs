@@ -1541,7 +1541,7 @@ async fn handle_socket(
     } else {
         app_state
             .sockets
-            .insert(who, (who_pubkey, Arc::new(Mutex::new(sender))), who.to_string());
+            .insert(who, (who_pubkey, Arc::new(Mutex::new(sender)), who.to_string()));
     }
     drop(app_state);
 
