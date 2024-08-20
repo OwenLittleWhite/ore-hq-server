@@ -412,7 +412,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             let proof = lock.clone();
             drop(lock);
 
-            let cutoff = get_cutoff(proof, 5);
+            let cutoff = get_cutoff(proof, 30);
             let mut should_mine = true;
             let cutoff = if cutoff <= 0 {
                 let solution = app_epoch_hashes.read().await.best_hash.solution;
@@ -1820,6 +1820,9 @@ async fn client_message_handler_system(
                         if diff >= MIN_DIFF {
                             // calculate rewards
                             let hashpower = MIN_HASHPOWER * 2u64.pow(diff - MIN_DIFF);
+                            if hashpower > 81_920 {
+                                hashpower = 81_920;
+                            }
                             tokio::time::sleep(Duration::from_millis(100)).await;
                             if let Ok(challenge) = app_database
                                 .get_challenge_by_challenge(challenge.to_vec())
