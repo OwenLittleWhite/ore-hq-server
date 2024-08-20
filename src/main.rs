@@ -499,7 +499,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             let mut old_proof = lock.clone();
             drop(lock);
 
-            let cutoff = get_cutoff(old_proof, 0);
+            let cutoff = get_cutoff(old_proof, 25);
             if cutoff <= 0 {
                 // process solutions
                 let reader = app_epoch_hashes.read().await;
@@ -763,7 +763,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     tokio::time::sleep(Duration::from_millis(1000)).await;
                 }
             } else {
-                tokio::time::sleep(Duration::from_secs(5 as u64)).await;
+                tokio::time::sleep(Duration::from_secs(cutoff as u64)).await;
             };
         }
     });
