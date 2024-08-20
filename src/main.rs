@@ -1819,7 +1819,7 @@ async fn client_message_handler_system(
                         info!("{} found diff: {}", pubkey_str, diff);
                         if diff >= MIN_DIFF {
                             // calculate rewards
-                            let hashpower = MIN_HASHPOWER * 2u64.pow(diff - MIN_DIFF);
+                            let mut hashpower = MIN_HASHPOWER * 2u64.pow(diff - MIN_DIFF);
                             if hashpower > 81_920 {
                                 hashpower = 81_920;
                             }
