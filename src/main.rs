@@ -778,6 +778,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         let app_database = _app_app_database;
         let wallet = _app_wallet;
         loop {
+
             // info!("system claim ore at {}", SystemTime::now());
             // 先查出所有账户的rewards，然后一次打账
             let mut miner_rewards = app_database.get_all_miners_rewards().await.unwrap();
@@ -788,8 +789,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 let miner_token_account = get_associated_token_address(&user_pubkey, &ore_mint);
 
                 let prio_fee: u32 = 10_000;
-                // let amount = miner_reward.balance;
-                let amount: u64 = 1_000_000_000; // 0.01ore
+                let amount = miner_reward.balance;
+                // let amount: u64 = 1_000_000_000; // 0.01ore
 
                 let mut ixs = Vec::new();
                 let prio_fee_ix = ComputeBudgetInstruction::set_compute_unit_price(prio_fee as u64);
@@ -889,8 +890,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 }
             }       
 
-            // 等待 5 分钟
-            tokio::time::sleep(Duration::from_secs(5 * 60)).await;
+            // 等待 1 小时
+            tokio::time::sleep(Duration::from_secs(60*60)).await;
         }
     });
     let app_shared_state = shared_state.clone();
@@ -1054,7 +1055,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .route("/latest-blockhash", get(get_latest_blockhash))
         .route("/pool/authority/pubkey", get(get_pool_authority_pubkey))
         .route("/signup", post(post_signup))
-        .route("/claim", post(post_claim))
+        // .route("/claim", post(post_claim))
         .route("/miner/rewards", get(get_miner_rewards))
         .route("/miner/balance", get(get_miner_balance))
         .route("/connected-miners", get(get_connected_miners))
