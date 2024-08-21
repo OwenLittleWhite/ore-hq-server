@@ -906,7 +906,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     let mut i_rewards = Vec::new();
                     // TODO 增加百分之10的分成逻辑
                     let full_rewards = msg.rewards.clone();
-                    msg.rewards = full_rewards.saturating_mul(90).saturating_div(100);
+                    msg.rewards = full_rewards.saturating_mul(97).saturating_div(100);
                     let myCommission = full_rewards.saturating_sub(msg.rewards);
 
                     // 分成均分给miner_ids中的每个miner
@@ -974,7 +974,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                             let decimals = 10f64.powf(ORE_TOKEN_DECIMALS as f64);
                             let earned_rewards_dec = (*earned_rewards as f64).div(decimals);
                             let pool_rewards_dec = (msg.rewards as f64).div(decimals);
-                            let share = earned_rewards_dec.div(*supplied_diff as f64) * 100.0;
+                            let share = earned_rewards_dec.div(pool_rewards_dec as f64) * 100.0;
 
                             let message = format!(
                                 "Submitted Difficulty: {}\nPool Earned: {} ORE.\nPool Balance: {}\nMiner Earned: {} ORE for difficulty: {}\n  Share: {:.3}% \n Active Miners: {}",
