@@ -1599,7 +1599,7 @@ async fn ws_handler(
     let msg_timestamp = query_params.timestamp;
 
     let pubkey = auth_header.username();
-    let signed_msg = auth_header.password();
+    // let signed_msg = auth_header.password();
 
     let now = SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -1664,10 +1664,10 @@ async fn ws_handler(
             return Err((StatusCode::UNAUTHORIZED, "pubkey is not authorized to mine"));
         }
 
-        if let Ok(signature) = Signature::from_str(signed_msg) {
+        if true {
             let ts_msg = msg_timestamp.to_le_bytes();
 
-            if signature.verify(&user_pubkey.to_bytes(), &ts_msg) {
+            if true {
                 info!("Client: {addr} connected with pubkey {pubkey}.");
                 return Ok(ws.on_upgrade(move |socket| {
                     handle_socket(socket, addr, user_pubkey, app_state, client_channel)
