@@ -412,7 +412,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             let proof = lock.clone();
             drop(lock);
 
-            let cutoff = get_cutoff(proof, 30);
+            let cutoff = get_cutoff(proof, 5);
             let mut should_mine = true;
             let cutoff = if cutoff <= 0 {
                 let solution = app_epoch_hashes.read().await.best_hash.solution;
@@ -500,7 +500,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             let mut old_proof = lock.clone();
             drop(lock);
 
-            let cutoff = get_cutoff(old_proof, 25);
+            let cutoff = get_cutoff(old_proof, 0);
             if cutoff <= 0 {
                 // process solutions
                 let reader = app_epoch_hashes.read().await;
