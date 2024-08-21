@@ -98,6 +98,31 @@ impl AppDatabase {
         };
     }
 
+    pub async fn get_all_miners_rewards(&self) -> Result<Vec<models::PubReward>, AppDatabaseError> {
+        if let Ok(db_conn) = self.connection_pool.get().await {
+            let res = db_conn.interact(move |conn: &mut MysqlConnection| {
+                diesel::sql_query("SELECT m.pubkey, r.balance FROM miners m JOIN rewards r ON m.id = r.miner_id where r.balance > 2000000000")
+            .load::<models::PubReward>(conn)
+            }).await;
+            match res {
+                Ok(interaction) => match interaction {
+                    Ok(query) => {
+                        return Ok(query);
+                    }
+                    Err(e) => {
+                        error!("{:?}", e);
+                        return Err(AppDatabaseError::QueryFailed);
+                    }
+                },
+                Err(e) => {
+                    error!("{:?}", e);
+                    return Err(AppDatabaseError::InteractionFailed);
+    }}}else {
+        return Err(AppDatabaseError::FailedToGetConnectionFromPool);
+    };
+    }
+
+
     pub async fn add_new_reward(&self, reward: InsertReward) -> Result<(), AppDatabaseError> {
         if let Ok(db_conn) = self.connection_pool.get().await {
             let res = db_conn
