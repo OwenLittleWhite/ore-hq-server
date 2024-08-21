@@ -147,9 +147,7 @@ pub struct Reward {
     pub balance: u64,
 }
 
-#[derive(Debug, Serialize, Deserialize, Queryable, Selectable, QueryableByName)]
-#[diesel(table_name = crate::schema::rewards)]
-#[diesel(check_for_backend(diesel::mysql::Mysql))]
+#[derive(Debug, QueryableName)]
 pub struct PubReward {
     pub balance: u64,
     pub pubkey: String,
