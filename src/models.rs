@@ -1,6 +1,7 @@
 use chrono::NaiveDateTime;
 use diesel::prelude::*;
 use serde::{Deserialize, Serialize};
+use diesel::sql_types::{Text, Unsigned, BigInt};
 
 #[derive(Debug, Serialize, Deserialize, Queryable, Selectable, QueryableByName)]
 #[diesel(table_name = crate::schema::challenges)]
@@ -147,10 +148,13 @@ pub struct Reward {
     pub balance: u64,
 }
 
-#[derive(Debug, QueryableName)]
+#[derive(QueryableByName)]
 pub struct PubReward {
-    pub balance: u64,
+    #[sql_type = "Text"]
     pub pubkey: String,
+
+    #[sql_type = "Unsigned<BigInt>"]
+    pub balance: u64,
 }
 
 #[derive(Debug, Copy, Clone, Deserialize, Insertable)]
