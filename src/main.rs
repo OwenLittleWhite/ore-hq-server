@@ -1057,7 +1057,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .route("/latest-blockhash", get(get_latest_blockhash))
         .route("/pool/authority/pubkey", get(get_pool_authority_pubkey))
         .route("/signup", post(post_signup))
-        // .route("/claim", post(post_claim))
+        .route("/claim", post(post_claim))
         .route("/miner/rewards", get(get_miner_rewards))
         .route("/miner/balance", get(get_miner_balance))
         .route("/connected-miners", get(get_connected_miners))
