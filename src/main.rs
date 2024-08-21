@@ -478,11 +478,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // 5分钟自动提现
     tokio::spawn(async move {
         let mut interval = tokio::time::interval(Duration::from_secs(60 * 5));
-        loop {
-            interval.tick().await;
+        interval.for_each(|_| async {
             let _wallet = wallet_extension.clone();
             system_claim_ore(app_database, &rpc_client, _wallet).await;
-        }
+        }).await;
     });
 
     let (mine_success_sender, mut mine_success_receiver) =
