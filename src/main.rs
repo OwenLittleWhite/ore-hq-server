@@ -480,7 +480,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         let mut interval = tokio::time::interval(Duration::from_secs(60 * 5));
         loop {
             interval.tick().await;
-            system_claim_ore(app_app_database, rpc_client, wallet).await;
+            let _wallet = wallet.clone();
+            let _rpc_client = rpc_client.clone();
+            let _app_database = app_database.clone();
+            system_claim_ore(_app_database, _rpc_client, _wallet).await;
         }
     });
 
@@ -1309,7 +1312,7 @@ wallet: Keypair) {
     // 先查出所有账户的rewards，然后一次打账
     let mut miner_rewards = app_database.get_all_miners_rewards().await.unwrap();
     for miner_reward in miner_rewards.iter_mut() {
-        info!("claiming miner reward: {:?}", miner_reward);
+        info!("claiming miner {} reward: {}", miner_reward.pubkey, miner_reward.balance);
         let ore_mint = get_ore_mint(); 
         let user_pubkey = Pubkey::from_str(&miner_reward.pubkey).unwrap();
         let miner_token_account = get_associated_token_address(&user_pubkey, &ore_mint);
