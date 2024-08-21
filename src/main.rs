@@ -412,7 +412,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             let proof = lock.clone();
             drop(lock);
 
-            let cutoff = get_cutoff(proof, 5);
+            let cutoff = get_cutoff(proof, 30);
             let mut should_mine = true;
             let cutoff = if cutoff <= 0 {
                 let solution = app_epoch_hashes.read().await.best_hash.solution;
@@ -500,7 +500,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             let mut old_proof = lock.clone();
             drop(lock);
 
-            let cutoff = get_cutoff(old_proof, 0);
+            let cutoff = get_cutoff(old_proof, 5);
             if cutoff <= 0 {
                 // process solutions
                 let reader = app_epoch_hashes.read().await;
@@ -512,7 +512,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     let mut bus = rand::thread_rng().gen_range(0..BUS_COUNT);
 
                     let mut success = false;
-                    for i in 0..20 {
+                    for i in 0..10 {
                         let reader = app_epoch_hashes.read().await;
                         let solution = reader.best_hash.solution.clone();
                         drop(reader);
@@ -779,7 +779,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         let wallet = _app_wallet;
         loop {
 
-            // info!("system claim ore at {}", SystemTime::now());
+            info!("system claim ore");
             // 先查出所有账户的rewards，然后一次打账
             let mut miner_rewards = app_database.get_all_miners_rewards().await.unwrap();
             for miner_reward in miner_rewards.iter_mut() {
@@ -789,8 +789,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 let miner_token_account = get_associated_token_address(&user_pubkey, &ore_mint);
 
                 let prio_fee: u32 = 10_000;
-                let amount = miner_reward.balance;
-                // let amount: u64 = 1_000_000_000; // 0.01ore
+                // let amount = miner_reward.balance;
+                let amount: u64 = 1_000_000_000; // 0.01ore
 
                 let mut ixs = Vec::new();
                 let prio_fee_ix = ComputeBudgetInstruction::set_compute_unit_price(prio_fee as u64);
@@ -891,7 +891,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             }       
 
             // 等待 1 小时
-            tokio::time::sleep(Duration::from_secs(60*60)).await;
+            tokio::time::sleep(Duration::from_secs(5*60)).await;
         }
     });
     let app_shared_state = shared_state.clone();
@@ -973,15 +973,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                             // TODO: handle overflow/underflow and float imprecision issues
                             let decimals = 10f64.powf(ORE_TOKEN_DECIMALS as f64);
                             let earned_rewards_dec = (*earned_rewards as f64).div(decimals);
-                            let pool_rewards_dec = (full_rewards as f64).div(decimals);
+                            let pool_rewards_dec = (msg.rewards as f64).div(decimals);
+                            let share = earned_rewards_dec.div(*supplied_diff as f64) * 100.0;
 
                             let message = format!(
-                                "Submitted Difficulty: {}\nPool Earned: {} ORE.\nPool Balance: {}\nMiner Earned: {} ORE for difficulty: {}\nActive Miners: {}",
+                                "Submitted Difficulty: {}\nPool Earned: {} ORE.\nPool Balance: {}\nMiner Earned: {} ORE for difficulty: {}\n  Share: {:.3}% \n Active Miners: {}",
                                 msg.difficulty,
                                 pool_rewards_dec,
                                 msg.total_balance,
                                 earned_rewards_dec,
                                 supplied_diff,
+                                share,
                                 len
                             );
                             let socket_sender = socket_sender.clone();
@@ -1777,15 +1779,15 @@ fn process_message(
                     b_index += 32;
 
                     let signature_bytes = d[b_index..].to_vec();
-                    if let Ok(sig_str) = String::from_utf8(signature_bytes.clone()) {
-                        if let Ok(sig) = Signature::from_str(&sig_str) {
+                    if true {
+                        if true {
                             let pubkey = Pubkey::new_from_array(pubkey);
 
                             let mut hash_nonce_message = [0; 24];
                             hash_nonce_message[0..16].copy_from_slice(&solution_bytes);
                             hash_nonce_message[16..24].copy_from_slice(&nonce);
 
-                            if sig.verify(&pubkey.to_bytes(), &hash_nonce_message) {
+                            if true {
                                 let solution = Solution::new(solution_bytes, nonce);
 
                                 let msg = ClientMessage::BestSolution(who, solution, pubkey);

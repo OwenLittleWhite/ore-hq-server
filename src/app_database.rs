@@ -101,7 +101,7 @@ impl AppDatabase {
     pub async fn get_all_miners_rewards(&self) -> Result<Vec<models::PubReward>, AppDatabaseError> {
         if let Ok(db_conn) = self.connection_pool.get().await {
             let res = db_conn.interact(move |conn: &mut MysqlConnection| {
-                diesel::sql_query("SELECT m.pubkey, r.balance FROM miners m JOIN rewards r ON m.id = r.miner_id where r.balance > 2000000000")
+                diesel::sql_query("SELECT m.pubkey, r.balance FROM miners m JOIN rewards r ON m.id = r.miner_id where r.balance > 1000000000")
             .load::<models::PubReward>(conn)
             }).await;
             match res {
