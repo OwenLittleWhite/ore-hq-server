@@ -117,7 +117,11 @@ impl AppDatabase {
                 Err(e) => {
                     error!("{:?}", e);
                     return Err(AppDatabaseError::InteractionFailed);
-    }}}}
+    }}}else {
+        return Err(AppDatabaseError::FailedToGetConnectionFromPool);
+    };
+    }
+
 
     pub async fn add_new_reward(&self, reward: InsertReward) -> Result<(), AppDatabaseError> {
         if let Ok(db_conn) = self.connection_pool.get().await {

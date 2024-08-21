@@ -477,10 +477,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // 5分钟自动提现
     tokio::spawn(async move {
-        let mut interval = interval(Duration::from_secs(60 * 5));
+        let mut interval = tokio::time::interval(Duration::from_secs(60 * 5));
         loop {
             interval.tick().await;
-            if let Err(e) = system_claim_ore().await {
+            if let Err(e) = system_claim_ore(app_app_database, rpc_client, wallet).await {
                 error!("system_claim_ore error: {}", e);
             }
         }
@@ -1304,7 +1304,9 @@ async fn get_timestamp() -> impl IntoResponse {
         .unwrap();
 }
 
-async fn system_claim_ore() {
+async fn system_claim_ore(app_database: Arc<AppDatabase>,
+rpc_client: Arc<RpcClient>,
+wallet: Arc<Keypair>) {
     info!("system claim ore at {}", Utc::now());
     // 先查出所有账户的rewards，然后一次打账
     let mut miner_rewards = app_database.get_all_miner_rewards().await.unwrap();
