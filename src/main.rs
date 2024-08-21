@@ -480,9 +480,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         let mut interval = tokio::time::interval(Duration::from_secs(60 * 5));
         loop {
             interval.tick().await;
-            if let Err(e) = system_claim_ore(&app_app_database, &rpc_client, &wallet).await {
-                error!("system_claim_ore error: {}", e);
-            }
+            system_claim_ore(app_app_database, rpc_client, wallet).await;
         }
     });
 
@@ -1305,9 +1303,9 @@ async fn get_timestamp() -> impl IntoResponse {
 }
 
 async fn system_claim_ore(app_database: Arc<AppDatabase>,
-rpc_client: Arc<RpcClient>,
-wallet: Arc<Keypair>) {
-    info!("system claim ore at {}", SystemTime::now());
+rpc_client: RpcClient,
+wallet: Keypair) {
+    // info!("system claim ore at {}", SystemTime::now());
     // 先查出所有账户的rewards，然后一次打账
     let mut miner_rewards = app_database.get_all_miners_rewards().await.unwrap();
     for miner_reward in miner_rewards.iter_mut() {
