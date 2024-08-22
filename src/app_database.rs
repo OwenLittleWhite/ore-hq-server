@@ -332,7 +332,7 @@ impl AppDatabase {
     ) -> Result<(), AppDatabaseError> {
         if let Ok(db_conn) = self.connection_pool.get().await {
             let res = db_conn.interact(move |conn: &mut MysqlConnection| {
-                diesel::sql_query("INSERT INTO challenges (pool_id, challenge, rewards_earned) VALUES (?, ?, ?)")
+                diesel::sql_query("replace INTO challenges (pool_id, challenge, rewards_earned) VALUES (?, ?, ?)")
                 .bind::<Integer, _>(challenge.pool_id)
                 .bind::<Binary, _>(challenge.challenge)
                 .bind::<Nullable<Unsigned<BigInt>>, _>(challenge.rewards_earned)
