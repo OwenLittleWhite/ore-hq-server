@@ -565,7 +565,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                             ixs.push(noop_ix);
 
                             if let Some(config) = loaded_config {
-                                let time_until_reset = (config.last_reset_at + 30) - now as i64;
+                                let time_until_reset = (config.last_reset_at + 60) - now as i64;
                                 if time_until_reset <= 5 {
                                     let reset_ix = get_reset_ix(signer.pubkey());
                                     ixs.push(reset_ix);
