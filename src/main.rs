@@ -548,7 +548,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                             let mut prio_fee = { app_prio_fee.lock().await.clone() };
                             if difficulty >= 23 && difficulty < 25 {
                                 prio_fee = 3_000
-                            } else if (difficulty >= 25) {
+                            } else if difficulty >= 25 {
                                 prio_fee = 5_000
                             }
                             // TODO
