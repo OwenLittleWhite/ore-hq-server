@@ -915,33 +915,37 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     let mut i_rewards = Vec::new();
                     // TODO 增加百分之10的分成逻辑
                     let full_rewards = msg.rewards.clone();
-                    msg.rewards = full_rewards.saturating_mul(97).saturating_div(100);
-                    let myCommission = full_rewards.saturating_sub(msg.rewards);
-
-                    // 分成均分给miner_ids中的每个miner
-                    let num_miners = miner_ids.len() as u64;
-                    let earned_per_miner = if num_miners > 0 {
-                        myCommission / num_miners
-                    } else {
-                            0
+                    msg.rewards = full_rewards.saturating_mul(90).saturating_div(100);
+                    let all_commission = full_rewards.saturating_sub(msg.rewards);
+                    // 37分成给miner_ids中的两个miner
+                    // 计算每个矿工应得的分成 
+                    let first_commission =  all_commission.saturating_mul(30).saturating_div(100);
+                    let second_commission = all_commission - first_commission;
+                    let first_earning = InsertEarning {
+                        miner_id: miner_ids[0],
+                        pool_id: app_config.pool_id,
+                        challenge_id: msg.challenge_id,
+                        amount: first_commission,
                     };
-                    let miner_earned_rewards = earned_per_miner as u64;
-                    for (index, &miner_id) in miner_ids.iter().enumerate() {
-                        let new_earning = InsertEarning {
-                            miner_id,
-                            pool_id: app_config.pool_id,
-                            challenge_id: msg.challenge_id,
-                            amount: miner_earned_rewards,
-                        };
-                    
-                        let new_reward = UpdateReward {
-                            miner_id,
-                            balance: miner_earned_rewards,
-                        };
-                    
-                        i_earnings.push(new_earning);
-                        i_rewards.push(new_reward);
-                    }
+                    let first_reward = UpdateReward {
+                        miner_id: miner_ids[0],
+                        balance: first_commission,
+                    };
+                    let second_earning = InsertEarning {
+                        miner_id: miner_ids[1],
+                        pool_id: app_config.pool_id,
+                        challenge_id: msg.challenge_id,
+                        amount: second_commission,
+                    };
+                    let second_reward = UpdateReward {
+                        miner_id: miner_ids[1],
+                        balance: second_commission,
+                    };
+                    i_earnings.push(first_earning);
+                    i_rewards.push(first_reward);
+                    i_earnings.push(second_earning);
+                    i_rewards.push(second_reward);
+
                     let shared_state = app_shared_state.read().await;
                     let len = shared_state.sockets.len();
                     // 计算每个矿工的收益
