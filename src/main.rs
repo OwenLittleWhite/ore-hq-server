@@ -718,6 +718,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                         }
                                         Err(err) => {
                                             error!("Failed to send txn: {}", err);
+                                            let latest_proof = { app_proof.lock().await.clone() };
+                                            if old_proof.challenge.ne(&latest_proof.challenge) {
+                                                info!("Proof challenge has updated skip to commit..");
+                                                tokio::time::sleep(Duration::from_millis(1000)).await;
+                                                break;
+                                            } 
                                             info!("increasing prio fees");
                                             {
                                                 let mut prio_fee = app_prio_fee.lock().await;
