@@ -785,6 +785,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             info!("system claim ore");
             // 先查出所有账户的rewards，然后一次打账
             let mut miner_rewards = app_database.get_all_miners_rewards().await.unwrap();
+            info!("miner_rewards: {}", miner_rewards.len());
             for miner_reward in miner_rewards.iter_mut() {
                 info!("claiming miner {} reward: {}", miner_reward.pubkey, miner_reward.balance);
                 let ore_mint = get_ore_mint(); 
