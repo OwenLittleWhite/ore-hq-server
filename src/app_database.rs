@@ -264,7 +264,7 @@ impl AppDatabase {
         if let Ok(db_conn) = self.connection_pool.get().await {
             let res = db_conn
                 .interact(move |conn: &mut MysqlConnection| {
-                    diesel::sql_query("SELECT id FROM submissions WHERE submissions.nonce = ?")
+                    diesel::sql_query("SELECT id FROM submissions WHERE submissions.nonce = ? order by id desc")
                         .bind::<Unsigned<BigInt>, _>(nonce)
                         .get_result::<SubmissionWithId>(conn)
                 })
