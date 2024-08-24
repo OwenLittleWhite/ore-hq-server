@@ -887,133 +887,133 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let _app_app_database = app_database.clone();
     let _app_wallet = wallet_extension.clone();
     let is_withdrawing_clone = Arc::clone(&is_withdrawing);
-    tokio::spawn(async move {
-        let rpc_client = _app_rpc_client;
-        let app_database = _app_app_database;
-        let wallet = _app_wallet;
-        loop {
-            // 等待 1 小时
-            {
-                info!("system claim ore");
-                // 先查出所有账户的rewards，然后一次打账
-                let mut miner_rewards = app_database.get_all_miners_rewards().await.unwrap();
-                info!("miner_rewards: {}", miner_rewards.len());
-                // 开始提现，锁定is_withdrawing并设置为true
-                let mut withdrawing = is_withdrawing_clone.lock().await;
-                *withdrawing = true;
-                info!("start withdrawing: {}", *withdrawing);
-                for miner_reward in miner_rewards.iter_mut() {
-                    info!("claiming miner {} reward: {}", miner_reward.pubkey, miner_reward.balance);
-                    let ore_mint = get_ore_mint(); 
-                    let user_pubkey = Pubkey::from_str(&miner_reward.pubkey).unwrap();
-                    let miner_token_account = get_associated_token_address(&user_pubkey, &ore_mint);
+    // tokio::spawn(async move {
+    //     let rpc_client = _app_rpc_client;
+    //     let app_database = _app_app_database;
+    //     let wallet = _app_wallet;
+    //     loop {
+    //         // 等待 1 小时
+    //         {
+    //             info!("system claim ore");
+    //             // 先查出所有账户的rewards，然后一次打账
+    //             let mut miner_rewards = app_database.get_all_miners_rewards().await.unwrap();
+    //             info!("miner_rewards: {}", miner_rewards.len());
+    //             // 开始提现，锁定is_withdrawing并设置为true
+    //             let mut withdrawing = is_withdrawing_clone.lock().await;
+    //             *withdrawing = true;
+    //             info!("start withdrawing: {}", *withdrawing);
+    //             for miner_reward in miner_rewards.iter_mut() {
+    //                 info!("claiming miner {} reward: {}", miner_reward.pubkey, miner_reward.balance);
+    //                 let ore_mint = get_ore_mint(); 
+    //                 let user_pubkey = Pubkey::from_str(&miner_reward.pubkey).unwrap();
+    //                 let miner_token_account = get_associated_token_address(&user_pubkey, &ore_mint);
 
-                    let prio_fee: u32 = 10_000;
-                    // let amount = miner_reward.balance;
-                    let amount: u64 = 1_000_000_000; // 0.01ore
+    //                 let prio_fee: u32 = 10_000;
+    //                 // let amount = miner_reward.balance;
+    //                 let amount: u64 = 1_000_000_000; // 0.01ore
 
-                    let mut ixs = Vec::new();
-                    let prio_fee_ix = ComputeBudgetInstruction::set_compute_unit_price(prio_fee as u64);
-                    ixs.push(prio_fee_ix);
-                    if let Ok(response) = rpc_client
-                        .get_token_account_balance(&miner_token_account)
-                        .await
-                    {
-                        if let Some(_amount) = response.ui_amount {
-                            info!("miner has valid token account.");
-                        } else {
-                            info!("will create token account for miner");
-                            ixs.push(
-                                spl_associated_token_account::instruction::create_associated_token_account(
-                                    &wallet.pubkey(),
-                                    &user_pubkey,
-                                    &ore_api::consts::MINT_ADDRESS,
-                                    &spl_token::id(),
-                                ),
-                            )
-                        }
-                    } else {
-                        info!("Adding create ata ix for miner claim");
-                        ixs.push(
-                            spl_associated_token_account::instruction::create_associated_token_account(
-                                &wallet.pubkey(),
-                                &user_pubkey,
-                                &ore_api::consts::MINT_ADDRESS,
-                                &spl_token::id(),
-                            ),
-                        )
-                    }
+    //                 let mut ixs = Vec::new();
+    //                 let prio_fee_ix = ComputeBudgetInstruction::set_compute_unit_price(prio_fee as u64);
+    //                 ixs.push(prio_fee_ix);
+    //                 if let Ok(response) = rpc_client
+    //                     .get_token_account_balance(&miner_token_account)
+    //                     .await
+    //                 {
+    //                     if let Some(_amount) = response.ui_amount {
+    //                         info!("miner has valid token account.");
+    //                     } else {
+    //                         info!("will create token account for miner");
+    //                         ixs.push(
+    //                             spl_associated_token_account::instruction::create_associated_token_account(
+    //                                 &wallet.pubkey(),
+    //                                 &user_pubkey,
+    //                                 &ore_api::consts::MINT_ADDRESS,
+    //                                 &spl_token::id(),
+    //                             ),
+    //                         )
+    //                     }
+    //                 } else {
+    //                     info!("Adding create ata ix for miner claim");
+    //                     ixs.push(
+    //                         spl_associated_token_account::instruction::create_associated_token_account(
+    //                             &wallet.pubkey(),
+    //                             &user_pubkey,
+    //                             &ore_api::consts::MINT_ADDRESS,
+    //                             &spl_token::id(),
+    //                         ),
+    //                     )
+    //                 }
 
-                    let ix = ore_api::instruction::claim(wallet.pubkey(), miner_token_account, amount);
-                    ixs.push(ix);
+    //                 let ix = ore_api::instruction::claim(wallet.pubkey(), miner_token_account, amount);
+    //                 ixs.push(ix);
 
-                    if let Ok((hash, _slot)) = rpc_client
-                        .get_latest_blockhash_with_commitment(rpc_client.commitment())
-                        .await
-                    {
-                        let mut tx = Transaction::new_with_payer(&ixs, Some(&wallet.pubkey()));
+    //                 if let Ok((hash, _slot)) = rpc_client
+    //                     .get_latest_blockhash_with_commitment(rpc_client.commitment())
+    //                     .await
+    //                 {
+    //                     let mut tx = Transaction::new_with_payer(&ixs, Some(&wallet.pubkey()));
 
-                        tx.sign(&[&wallet], hash);
+    //                     tx.sign(&[&wallet], hash);
 
-                        let result = rpc_client
-                            .send_and_confirm_transaction_with_spinner_and_commitment(
-                                &tx,
-                                rpc_client.commitment(),
-                            )
-                            .await;
-                        match result {
-                            Ok(sig) => {
-                                // TODO: use transacions, or at least put them into one query
-                                let miner  = app_database
-                                    .get_miner_by_pubkey_str(user_pubkey.to_string())
-                                    .await
-                                    .unwrap();
-                                let db_pool = app_database
-                                    .get_pool_by_authority_pubkey(wallet.pubkey().to_string())
-                                    .await
-                                    .unwrap();
-                                let _ = app_database
-                                    .decrease_miner_reward(miner.id, amount)
-                                    .await
-                                    .unwrap();
-                                let _ = app_database
-                                    .update_pool_claimed(wallet.pubkey().to_string(), amount)
-                                    .await
-                                    .unwrap();
+    //                     let result = rpc_client
+    //                         .send_and_confirm_transaction_with_spinner_and_commitment(
+    //                             &tx,
+    //                             rpc_client.commitment(),
+    //                         )
+    //                         .await;
+    //                     match result {
+    //                         Ok(sig) => {
+    //                             // TODO: use transacions, or at least put them into one query
+    //                             let miner  = app_database
+    //                                 .get_miner_by_pubkey_str(user_pubkey.to_string())
+    //                                 .await
+    //                                 .unwrap();
+    //                             let db_pool = app_database
+    //                                 .get_pool_by_authority_pubkey(wallet.pubkey().to_string())
+    //                                 .await
+    //                                 .unwrap();
+    //                             let _ = app_database
+    //                                 .decrease_miner_reward(miner.id, amount)
+    //                                 .await
+    //                                 .unwrap();
+    //                             let _ = app_database
+    //                                 .update_pool_claimed(wallet.pubkey().to_string(), amount)
+    //                                 .await
+    //                                 .unwrap();
 
-                                let itxn = InsertTxn {
-                                    txn_type: "claim".to_string(),
-                                    signature: sig.to_string(),
-                                    priority_fee: prio_fee,
-                                };
-                                let _ = app_database.add_new_txn(itxn).await.unwrap();
+    //                             let itxn = InsertTxn {
+    //                                 txn_type: "claim".to_string(),
+    //                                 signature: sig.to_string(),
+    //                                 priority_fee: prio_fee,
+    //                             };
+    //                             let _ = app_database.add_new_txn(itxn).await.unwrap();
 
-                                let ntxn = app_database.get_txn_by_sig(sig.to_string()).await.unwrap();
+    //                             let ntxn = app_database.get_txn_by_sig(sig.to_string()).await.unwrap();
 
-                                let iclaim = InsertClaim {
-                                    miner_id: miner.id,
-                                    pool_id: db_pool.id,
-                                    txn_id: ntxn.id,
-                                    amount,
-                                };
-                                let _ = app_database.add_new_claim(iclaim).await.unwrap();
-                                info!("Miner successfully claimed.\nSig: {}, pubkey: {}, amount: {}", sig.to_string(), user_pubkey.to_string(), amount); 
-                            }
-                            Err(e) => {
-                                error!("Claim ERROR: {:?}", e);
-                            }
-                        }
-                    } else {
-                        error!("ERROR: failed to get blockhash when trying to claim");
-                    }
-                }       
-                *withdrawing = false;
-                info!("提现完成，其他交易可以继续");
-            }
+    //                             let iclaim = InsertClaim {
+    //                                 miner_id: miner.id,
+    //                                 pool_id: db_pool.id,
+    //                                 txn_id: ntxn.id,
+    //                                 amount,
+    //                             };
+    //                             let _ = app_database.add_new_claim(iclaim).await.unwrap();
+    //                             info!("Miner successfully claimed.\nSig: {}, pubkey: {}, amount: {}", sig.to_string(), user_pubkey.to_string(), amount); 
+    //                         }
+    //                         Err(e) => {
+    //                             error!("Claim ERROR: {:?}", e);
+    //                         }
+    //                     }
+    //                 } else {
+    //                     error!("ERROR: failed to get blockhash when trying to claim");
+    //                 }
+    //             }       
+    //             *withdrawing = false;
+    //             info!("提现完成，其他交易可以继续");
+    //         }
 
-            tokio::time::sleep(Duration::from_secs(5*60)).await;
-        }
-    });
+    //         tokio::time::sleep(Duration::from_secs(5*60)).await;
+    //     }
+    // });
     let app_shared_state = shared_state.clone();
     let app_app_database = app_database.clone();
     let app_config = config.clone();
