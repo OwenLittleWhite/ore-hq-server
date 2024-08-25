@@ -181,7 +181,7 @@ pub async fn get_proof_and_config_with_busses(
 pub async fn send_and_confirm(client: &RpcClient, tx: Transaction) -> ClientResult<Signature> {
     // Build tx
     let send_cfg = RpcSendTransactionConfig {
-        skip_preflight: true,
+        skip_preflight: false,
         preflight_commitment: Some(CommitmentLevel::Confirmed),
         encoding: Some(UiTransactionEncoding::Base64),
         max_retries: Some(0),
