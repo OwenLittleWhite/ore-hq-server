@@ -1,5 +1,3 @@
-use std::time::{SystemTime, UNIX_EPOCH};
-
 use drillx::Solution;
 use ore_api::{
     consts::{
@@ -12,10 +10,25 @@ use ore_api::{
 };
 pub use ore_utils::AccountDeserialize;
 use solana_client::nonblocking::rpc_client::RpcClient;
-use solana_sdk::{
-    account::ReadableAccount, clock::Clock, instruction::Instruction, pubkey::Pubkey, sysvar,
+use solana_client::{
+    client_error::{ClientError, ClientErrorKind, Result as ClientResult},
+    rpc_config::RpcSendTransactionConfig,
 };
+use solana_sdk::{
+    account::ReadableAccount,
+    clock::Clock,
+    commitment_config::CommitmentLevel,
+    instruction::Instruction,
+    pubkey::Pubkey,
+    signature::{Signature, Signer},
+    sysvar,
+    transaction::Transaction,
+};
+use solana_transaction_status::{TransactionConfirmationStatus, UiTransactionEncoding};
 use spl_associated_token_account::get_associated_token_address;
+use std::time::{SystemTime, UNIX_EPOCH};
+use std::{str::FromStr, time::Duration};
+use tracing::{error, info};
 
 pub const ORE_TOKEN_DECIMALS: u8 = TOKEN_DECIMALS;
 
@@ -165,6 +178,72 @@ pub async fn get_proof_and_config_with_busses(
     }
 }
 
+pub async fn send_and_confirm(client: &RpcClient, tx: Transaction) -> ClientResult<Signature> {
+    // Build tx
+    let send_cfg = RpcSendTransactionConfig {
+        skip_preflight: true,
+        preflight_commitment: Some(CommitmentLevel::Confirmed),
+        encoding: Some(UiTransactionEncoding::Base64),
+        max_retries: Some(0),
+        min_context_slot: None,
+    };
+    // Send transaction
+    match client.send_transaction_with_config(&tx, send_cfg).await {
+        Ok(sig) => {
+            // Confirm transaction
+            'confirm: for _ in 0..10 {
+                tokio::time::sleep(Duration::from_millis(500)).await;
+                match client.get_signature_statuses(&[sig]).await {
+                    Ok(signature_statuses) => {
+                        for status in signature_statuses.value {
+                            if let Some(status) = status {
+                                if let Some(err) = status.err {
+                                    error!("GET signature status Error: {}", err);
+                                    return Err(ClientError {
+                                        request: None,
+                                        kind: ClientErrorKind::Custom(err.to_string()),
+                                    });
+                                } else if let Some(confirmation) = status.confirmation_status {
+                                    match confirmation {
+                                        TransactionConfirmationStatus::Processed => {
+                                            info!("processing... {}", sig)
+                                        }
+                                        TransactionConfirmationStatus::Confirmed
+                                        | TransactionConfirmationStatus::Finalized => {
+                                            info!("OK {}", sig);
+                                            return Ok(sig);
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // Handle confirmation errors
+                    Err(err) => {
+                        error!("GET signature status Error: {}", err);
+                        return Err(ClientError {
+                            request: None,
+                            kind: ClientErrorKind::Custom(err.to_string()),
+                        });
+                    }
+                }
+            }
+            return Err(ClientError {
+                request: None,
+                kind: ClientErrorKind::Custom("Confirmation timeout".to_string()),
+            });
+        }
+
+        // Handle submit errors
+        Err(err) => {
+            return Err(ClientError {
+                request: None,
+                kind: ClientErrorKind::Custom(err.to_string()),
+            })
+        }
+    }
+}
 pub async fn get_proof(client: &RpcClient, authority: Pubkey) -> Result<Proof, String> {
     let proof_address = proof_pubkey(authority);
     let data = client.get_account_data(&proof_address).await;
