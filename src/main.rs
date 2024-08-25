@@ -1641,12 +1641,7 @@ async fn post_claim(
 
                 tx.sign(&[&wallet], hash);
 
-                let result = rpc_client
-                    .send_and_confirm_transaction_with_spinner_and_commitment(
-                        &tx,
-                        rpc_client.commitment(),
-                    )
-                    .await;
+                let result = send_and_confirm(&rpc_client, tx).await;
                 match result {
                     Ok(sig) => {
                         info!("Miner successfully claimed.\nSig: {}", sig.to_string());
@@ -1692,7 +1687,7 @@ async fn post_claim(
                             .unwrap();
                     }
                     Err(e) => {
-                        error!("ERROR: {:?}", e);
+                        error!("Claim ERROR: {:?}", e);
                         return Response::builder()
                             .status(StatusCode::INTERNAL_SERVER_ERROR)
                             .body("FAILED".to_string())

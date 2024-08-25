@@ -191,7 +191,8 @@ pub async fn send_and_confirm(client: &RpcClient, tx: Transaction) -> ClientResu
     match client.send_transaction_with_config(&tx, send_cfg).await {
         Ok(sig) => {
             // Confirm transaction
-            'confirm: for _ in 0..10 {
+            'confirm: for i in 0..10 {
+                info!("Confirming transaction 第{}次 {}", i, sig);
                 tokio::time::sleep(Duration::from_millis(500)).await;
                 match client.get_signature_statuses(&[sig]).await {
                     Ok(signature_statuses) => {
@@ -222,10 +223,6 @@ pub async fn send_and_confirm(client: &RpcClient, tx: Transaction) -> ClientResu
                     // Handle confirmation errors
                     Err(err) => {
                         error!("GET signature status Error: {}", err);
-                        return Err(ClientError {
-                            request: None,
-                            kind: ClientErrorKind::Custom(err.to_string()),
-                        });
                     }
                 }
             }
