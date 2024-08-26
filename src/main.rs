@@ -609,7 +609,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                 tx.sign(&[&signer], hash);
                                 info!("Sending signed tx...");
                                 info!("attempt: {}", i + 1);
-                                let sig = send_and_confirm(&rpc_client, tx).await;
+                                let sig = send_and_confirm(&rpc_client, tx, 10).await;
 
                                 match sig {
                                     Ok(sig) => {
@@ -978,7 +978,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
                         tx.sign(&[&wallet], hash);
 
-                        let result = send_and_confirm(&rpc_client, tx).await;
+                        let result = send_and_confirm(&rpc_client, tx, 50).await;
                         match result {
                             Ok(sig) => {
                                 // TODO: use transacions, or at least put them into one query
@@ -1647,7 +1647,7 @@ async fn post_claim(
 
                 tx.sign(&[&wallet], hash);
 
-                let result = send_and_confirm(&rpc_client, tx).await;
+                let result = send_and_confirm(&rpc_client, tx, 50).await;
                 match result {
                     Ok(sig) => {
                         info!("Miner successfully claimed.\nSig: {}", sig.to_string());
