@@ -2075,11 +2075,11 @@ async fn client_message_handler_system(
                     };
 
                     let nonce = u64::from_le_bytes(solution.n);
-
-                    if !nonce_range.contains(&nonce) {
-                        error!("Client submitted nonce out of assigned range");
-                        return;
-                    }
+                    // TODO check if nonce is within assigned range
+                    // if !nonce_range.contains(&nonce) {
+                    //     error!("Client submitted nonce out of assigned range");
+                    //     return;
+                    // }
 
                     if solution.is_valid(&challenge) {
                         let diff = solution.to_hash().difficulty();
