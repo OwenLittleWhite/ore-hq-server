@@ -287,12 +287,8 @@ pub fn get_cutoff(proof: Proof, buffer_time: u64) -> i64 {
         .duration_since(UNIX_EPOCH)
         .expect("Failed to get time")
         .as_secs() as i64;
-    let adjusted_last_hash_at = if proof.last_hash_at < now - 30 {
-        now - 30
-    } else {
-        proof.last_hash_at
-    };
-    adjusted_last_hash_at
+    proof
+        .last_hash_at
         .saturating_add(60)
         .saturating_sub(buffer_time as i64)
         .saturating_sub(now)
