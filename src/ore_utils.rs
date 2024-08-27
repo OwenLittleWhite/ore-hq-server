@@ -178,7 +178,7 @@ pub async fn get_proof_and_config_with_busses(
     }
 }
 
-pub async fn send_and_confirm(client: &RpcClient, tx: Transaction, attemp_cnt: u8) -> ClientResult<Signature> {
+pub async fn send_and_confirm(client: &RpcClient, tx: Transaction) -> ClientResult<Signature> {
     // Build tx
     let send_cfg = RpcSendTransactionConfig {
         skip_preflight: false,
@@ -191,7 +191,7 @@ pub async fn send_and_confirm(client: &RpcClient, tx: Transaction, attemp_cnt: u
     match client.send_transaction_with_config(&tx, send_cfg).await {
         Ok(sig) => {
             // Confirm transaction
-            'confirm: for i in 0..attemp_cnt {
+            'confirm: for i in 0..50 {
                 info!("Confirming transaction 第{}次 {}", i, sig);
                 tokio::time::sleep(Duration::from_millis(500)).await;
                 match client.get_signature_statuses(&[sig]).await {
@@ -283,8 +283,12 @@ pub fn get_cutoff(proof: Proof, buffer_time: u64) -> i64 {
         .duration_since(UNIX_EPOCH)
         .expect("Failed to get time")
         .as_secs() as i64;
-    proof
-        .last_hash_at
+    let adjusted_last_hash_at = if proof.last_hash_at < now - 30 {
+        now - 30
+    } else {
+        proof.last_hash_at
+    };
+    adjusted_last_hash_at
         .saturating_add(60)
         .saturating_sub(buffer_time as i64)
         .saturating_sub(now)
