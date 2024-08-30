@@ -453,9 +453,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     let shared_state = app_shared_state.read().await;
                     let sockets = shared_state.sockets.clone();
                     drop(shared_state);
+                    let challenge = challenge.clone();
+                    let cutoff = cutoff.clone();
                     if let Some(sender) = sockets.get(&client) {
                         let sender = sender.clone();
                         let ready_clients = ready_clients.clone();
+                        let string_data = String::from_utf8_lossy(&challenge).into_owned();
+                        info!("Sending challenge {} cuttoff: {} to client {}",string_data,cutoff, &client.to_string());
                         tokio::spawn(async move {
                             let _ = sender
                                 .1
