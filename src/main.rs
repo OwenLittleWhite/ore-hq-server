@@ -458,9 +458,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     if let Some(sender) = sockets.get(&client) {
                         let sender = sender.clone();
                         let ready_clients = ready_clients.clone();
+                        let hex_array_str = format!(
+                            "[{}]",
+                            challenge
+                                .iter()
+                                .map(|&b| format!("{:02X}", b))
+                                .collect::<Vec<String>>()
+                                .join(", ")
+                        );
                         info!(
-                            "Sending challenge {:?} cuttoff: {} to client {}",
-                            challenge,
+                            "Sending challenge {} cuttoff: {} to client {}",
+                            hex_array_str,
                             cutoff,
                             &client.to_string()
                         );
