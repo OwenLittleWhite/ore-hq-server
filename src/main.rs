@@ -458,8 +458,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     if let Some(sender) = sockets.get(&client) {
                         let sender = sender.clone();
                         let ready_clients = ready_clients.clone();
-                        let string_data = String::from_utf8_lossy(&challenge).into_owned();
-                        info!("Sending challenge {} cuttoff: {} to client {}",string_data,cutoff, &client.to_string());
+                        info!(
+                            "Sending challenge {:?} cuttoff: {} to client {}",
+                            challenge,
+                            cutoff,
+                            &client.to_string()
+                        );
                         tokio::spawn(async move {
                             let _ = sender
                                 .1
@@ -2087,7 +2091,12 @@ async fn client_message_handler_system(
                     let addr_clone = _addr.clone();
                     if solution.is_valid(&challenge) {
                         let diff = solution.to_hash().difficulty();
-                        info!("{} {} found diff: {}", &addr_clone.to_string(), pubkey_str, diff);
+                        info!(
+                            "{} {} found diff: {}",
+                            &addr_clone.to_string(),
+                            pubkey_str,
+                            diff
+                        );
                         if diff >= MIN_DIFF {
                             // calculate rewards
                             let mut hashpower = MIN_HASHPOWER * 2u64.pow(diff - MIN_DIFF);
@@ -2160,7 +2169,12 @@ async fn client_message_handler_system(
                         }
                     } else {
                         let diff = solution.to_hash().difficulty();
-                        error!("{} {} returned an invalid solution! {}", &addr_clone.to_string(), pubkey, diff);
+                        error!(
+                            "{} {} returned an invalid solution! {}",
+                            &addr_clone.to_string(),
+                            pubkey,
+                            diff
+                        );
                     }
                 });
             }
