@@ -2080,10 +2080,10 @@ async fn client_message_handler_system(
                     //     error!("Client submitted nonce out of assigned range");
                     //     return;
                     // }
-
+                    let addr_clone = _addr.clone();
                     if solution.is_valid(&challenge) {
                         let diff = solution.to_hash().difficulty();
-                        info!("{} found diff: {}", pubkey_str, diff);
+                        info!("{} {} found diff: {}", &addr_clone.to_string(), pubkey_str, diff);
                         if diff >= MIN_DIFF {
                             // calculate rewards
                             let mut hashpower = MIN_HASHPOWER * 2u64.pow(diff - MIN_DIFF);
@@ -2156,7 +2156,7 @@ async fn client_message_handler_system(
                         }
                     } else {
                         let diff = solution.to_hash().difficulty();
-                        error!("{} returned an invalid solution! {}", pubkey, diff);
+                        error!("{} {} returned an invalid solution! {}", &addr_clone.to_string(), pubkey, diff);
                     }
                 });
             }
