@@ -2155,7 +2155,8 @@ async fn client_message_handler_system(
                             error!("Diff to low, skipping");
                         }
                     } else {
-                        error!("{} returned an invalid solution!", pubkey);
+                        let diff = solution.to_hash().difficulty();
+                        error!("{} returned an invalid solution! {}", pubkey, diff);
                     }
                 });
             }
