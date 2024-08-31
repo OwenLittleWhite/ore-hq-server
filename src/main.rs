@@ -466,12 +466,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                 .collect::<Vec<String>>()
                                 .join(", ")
                         );
-                        info!(
-                            "Sending challenge {} cuttoff: {} to client {}",
-                            hex_array_str,
-                            cutoff,
-                            &client.to_string()
-                        );
+                        // info!(
+                        //     "Sending challenge {} cuttoff: {} to client {}",
+                        //     hex_array_str,
+                        //     cutoff,
+                        //     &client.to_string()
+                        // );
                         tokio::spawn(async move {
                             let _ = sender
                                 .1
