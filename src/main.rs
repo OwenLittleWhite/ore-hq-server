@@ -1787,50 +1787,45 @@ async fn ws_handler(
                     if !whitelist.contains(&user_pubkey) {
                         return Err((StatusCode::UNAUTHORIZED, "pubkey is not authorized to mine"));
                     }
-                    let result = app_database
-                        .add_new_miner(user_pubkey.to_string(), true)
-                        .await;
-                    let miner_result = app_database
-                        .get_miner_by_pubkey_str(user_pubkey.to_string())
-                        .await;
-                    if let Ok(miner_result) = miner_result {
-                        miner = miner_result;
-                    } else {
-                        error!("Failed to add new miner to database");
-                        return Err((
-                            StatusCode::INTERNAL_SERVER_ERROR,
-                            "Failed to add new miner to database",
-                        ));
-                    }
+                }
+                let result = app_database
+                    .add_new_miner(user_pubkey.to_string(), true)
+                    .await;
+                let miner_result = app_database
+                    .get_miner_by_pubkey_str(user_pubkey.to_string())
+                    .await;
+                if let Ok(miner_result) = miner_result {
+                    miner = miner_result;
+                } else {
+                    error!("Failed to add new miner to database");
+                    return Err((
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        "Failed to add new miner to database",
+                    ));
+                }
 
-                    let wallet_pubkey = wallet.pubkey();
-                    let pool = app_database
-                        .get_pool_by_authority_pubkey(wallet_pubkey.to_string())
-                        .await
-                        .unwrap();
+                let wallet_pubkey = wallet.pubkey();
+                let pool = app_database
+                    .get_pool_by_authority_pubkey(wallet_pubkey.to_string())
+                    .await
+                    .unwrap();
+
+                if result.is_ok() {
+                    let new_reward = InsertReward {
+                        miner_id: miner.id,
+                        pool_id: pool.id,
+                    };
+                    let result = app_database.add_new_reward(new_reward).await;
 
                     if result.is_ok() {
-                        let new_reward = InsertReward {
-                            miner_id: miner.id,
-                            pool_id: pool.id,
-                        };
-                        let result = app_database.add_new_reward(new_reward).await;
-
-                        if result.is_ok() {
-                            info!(
-                                "Added new miner rewards tracker to database {}",
-                                user_pubkey.to_string()
-                            );
-                        } else {
-                            error!("Failed to add miner rewards tracker to database");
-                            return Err((
-                                StatusCode::INTERNAL_SERVER_ERROR,
-                                "Internal Server Error",
-                            ));
-                        }
+                        info!(
+                            "Added new miner rewards tracker to database {}",
+                            user_pubkey.to_string()
+                        );
+                    } else {
+                        error!("Failed to add miner rewards tracker to database");
+                        return Err((StatusCode::INTERNAL_SERVER_ERROR, "Internal Server Error"));
                     }
-                } else {
-                    return Err((StatusCode::UNAUTHORIZED, "Invalid pubkey"));
                 }
                 // return Err((StatusCode::INTERNAL_SERVER_ERROR, "Internal Server Error"));
             }
