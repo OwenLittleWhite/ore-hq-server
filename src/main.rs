@@ -1213,8 +1213,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .route("/", get(ws_handler))
         .route("/latest-blockhash", get(get_latest_blockhash))
         .route("/pool/authority/pubkey", get(get_pool_authority_pubkey))
-        .route("/signup", post(post_signup))
-        .route("/claim", post(post_claim))
+        // .route("/signup", post(post_signup))
+        // .route("/claim", post(post_claim))
         .route("/miner/rewards", get(get_miner_rewards))
         .route("/miner/balance", get(get_miner_balance))
         .route("/connected-miners", get(get_connected_miners))
@@ -1750,6 +1750,8 @@ async fn ws_handler(
     //Extension(app_config): Extension<Arc<Config>>,
     Extension(client_channel): Extension<UnboundedSender<ClientMessage>>,
     Extension(app_database): Extension<Arc<AppDatabase>>,
+    Extension(wallet): Extension<Arc<Keypair>>,
+    Extension(app_config): Extension<Arc<Config>>,
     query_params: Query<WsQueryParams>,
 ) -> impl IntoResponse {
     let msg_timestamp = query_params.timestamp;
@@ -1769,22 +1771,6 @@ async fn ws_handler(
 
     // verify client
     if let Ok(user_pubkey) = Pubkey::from_str(pubkey) {
-        // {
-        //     let mut already_connected = false;
-        //     for (_, (socket_pubkey, _)) in app_state.read().await.sockets.iter() {
-        //         if user_pubkey == *socket_pubkey {
-        //             already_connected = true;
-        //             break;
-        //         }
-        //     }
-        //     if already_connected {
-        //         return Err((
-        //             StatusCode::TOO_MANY_REQUESTS,
-        //             "A client is already connected with that wallet",
-        //         ));
-        //     }
-        // };
-
         let db_miner = app_database
             .get_miner_by_pubkey_str(pubkey.to_string())
             .await;
@@ -1794,35 +1780,67 @@ async fn ws_handler(
             Ok(db_miner) => {
                 miner = db_miner;
             }
-            Err(AppDatabaseError::QueryFailed) => {
-                return Err((
-                    StatusCode::UNAUTHORIZED,
-                    "pubkey is not authorized to mine. please sign up.",
-                ));
-            }
-            Err(AppDatabaseError::InteractionFailed) => {
-                return Err((
-                    StatusCode::UNAUTHORIZED,
-                    "pubkey is not authorized to mine. please sign up.",
-                ));
-            }
-            Err(AppDatabaseError::FailedToGetConnectionFromPool) => {
-                error!("Failed to get database pool connection.");
-                return Err((StatusCode::INTERNAL_SERVER_ERROR, "Internal Server Error"));
-            }
             Err(_) => {
-                error!("DB Error: Catch all.");
-                return Err((StatusCode::INTERNAL_SERVER_ERROR, "Internal Server Error"));
+                error!("DB Error: Catch all. should auto register miner");
+                // 如果有白名单，判断是否在白名单
+                if let Some(whitelist) = &app_config.whitelist {
+                    if !whitelist.contains(&user_pubkey) {
+                        return Err((StatusCode::UNAUTHORIZED, "pubkey is not authorized to mine"));
+                    }
+                    let result = app_database
+                        .add_new_miner(user_pubkey.to_string(), true)
+                        .await;
+                    let miner_result = app_database
+                        .get_miner_by_pubkey_str(user_pubkey.to_string())
+                        .await;
+                    if let Ok(miner_result) = miner_result {
+                        miner = miner_result;
+                    } else {
+                        error!("Failed to add new miner to database");
+                        return Err((
+                            StatusCode::INTERNAL_SERVER_ERROR,
+                            "Failed to add new miner to database",
+                        ));
+                    }
+
+                    let wallet_pubkey = wallet.pubkey();
+                    let pool = app_database
+                        .get_pool_by_authority_pubkey(wallet_pubkey.to_string())
+                        .await
+                        .unwrap();
+
+                    if result.is_ok() {
+                        let new_reward = InsertReward {
+                            miner_id: miner.id,
+                            pool_id: pool.id,
+                        };
+                        let result = app_database.add_new_reward(new_reward).await;
+
+                        if result.is_ok() {
+                            info!(
+                                "Added new miner rewards tracker to database {}",
+                                user_pubkey.to_string()
+                            );
+                        } else {
+                            error!("Failed to add miner rewards tracker to database");
+                            return Err((
+                                StatusCode::INTERNAL_SERVER_ERROR,
+                                "Internal Server Error",
+                            ));
+                        }
+                    }
+                } else {
+                    return Err((StatusCode::UNAUTHORIZED, "Invalid pubkey"));
+                }
+                // return Err((StatusCode::INTERNAL_SERVER_ERROR, "Internal Server Error"));
             }
         }
-
         if !miner.enabled {
             return Err((StatusCode::UNAUTHORIZED, "pubkey is not authorized to mine"));
         }
 
         if true {
             let ts_msg = msg_timestamp.to_le_bytes();
-
             if true {
                 info!("Client: {addr} connected with pubkey {pubkey}.");
                 return Ok(ws.on_upgrade(move |socket| {
