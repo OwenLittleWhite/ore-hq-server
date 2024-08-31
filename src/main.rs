@@ -453,9 +453,25 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     let shared_state = app_shared_state.read().await;
                     let sockets = shared_state.sockets.clone();
                     drop(shared_state);
+                    let challenge = challenge.clone();
+                    let cutoff = cutoff.clone();
                     if let Some(sender) = sockets.get(&client) {
                         let sender = sender.clone();
                         let ready_clients = ready_clients.clone();
+                        let hex_array_str = format!(
+                            "[{}]",
+                            challenge
+                                .iter()
+                                .map(|&b| format!("{:02X}", b))
+                                .collect::<Vec<String>>()
+                                .join(", ")
+                        );
+                        info!(
+                            "Sending challenge {} cuttoff: {} to client {}",
+                            hex_array_str,
+                            cutoff,
+                            &client.to_string()
+                        );
                         tokio::spawn(async move {
                             let _ = sender
                                 .1
@@ -609,7 +625,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                 tx.sign(&[&signer], hash);
                                 info!("Sending signed tx...");
                                 info!("attempt: {}", i + 1);
-                                let sig = send_and_confirm(&rpc_client, tx).await;
+                                let sig = send_and_confirm(&rpc_client, tx, 10).await;
 
                                 match sig {
                                     Ok(sig) => {
@@ -978,7 +994,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
                         tx.sign(&[&wallet], hash);
 
-                        let result = send_and_confirm(&rpc_client, tx).await;
+                        let result = send_and_confirm(&rpc_client, tx, 50).await;
                         match result {
                             Ok(sig) => {
                                 // TODO: use transacions, or at least put them into one query
@@ -1647,7 +1663,7 @@ async fn post_claim(
 
                 tx.sign(&[&wallet], hash);
 
-                let result = send_and_confirm(&rpc_client, tx).await;
+                let result = send_and_confirm(&rpc_client, tx, 50).await;
                 match result {
                     Ok(sig) => {
                         info!("Miner successfully claimed.\nSig: {}", sig.to_string());
@@ -2075,15 +2091,20 @@ async fn client_message_handler_system(
                     };
 
                     let nonce = u64::from_le_bytes(solution.n);
-
-                    if !nonce_range.contains(&nonce) {
-                        error!("Client submitted nonce out of assigned range");
-                        return;
-                    }
-
+                    // TODO check if nonce is within assigned range
+                    // if !nonce_range.contains(&nonce) {
+                    //     error!("Client submitted nonce out of assigned range");
+                    //     return;
+                    // }
+                    let addr_clone = _addr.clone();
                     if solution.is_valid(&challenge) {
                         let diff = solution.to_hash().difficulty();
-                        info!("{} found diff: {}", pubkey_str, diff);
+                        info!(
+                            "{} {} found diff: {}",
+                            &addr_clone.to_string(),
+                            pubkey_str,
+                            diff
+                        );
                         if diff >= MIN_DIFF {
                             // calculate rewards
                             let mut hashpower = MIN_HASHPOWER * 2u64.pow(diff - MIN_DIFF);
@@ -2155,7 +2176,13 @@ async fn client_message_handler_system(
                             error!("Diff to low, skipping");
                         }
                     } else {
-                        error!("{} returned an invalid solution!", pubkey);
+                        let diff = solution.to_hash().difficulty();
+                        error!(
+                            "{} {} returned an invalid solution! {}",
+                            &addr_clone.to_string(),
+                            pubkey,
+                            diff
+                        );
                     }
                 });
             }

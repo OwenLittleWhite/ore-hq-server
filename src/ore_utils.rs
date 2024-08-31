@@ -178,7 +178,11 @@ pub async fn get_proof_and_config_with_busses(
     }
 }
 
-pub async fn send_and_confirm(client: &RpcClient, tx: Transaction) -> ClientResult<Signature> {
+pub async fn send_and_confirm(
+    client: &RpcClient,
+    tx: Transaction,
+    times: u8,
+) -> ClientResult<Signature> {
     // Build tx
     let send_cfg = RpcSendTransactionConfig {
         skip_preflight: false,
@@ -191,7 +195,7 @@ pub async fn send_and_confirm(client: &RpcClient, tx: Transaction) -> ClientResu
     match client.send_transaction_with_config(&tx, send_cfg).await {
         Ok(sig) => {
             // Confirm transaction
-            'confirm: for i in 0..50 {
+            'confirm: for i in 0..times {
                 info!("Confirming transaction 第{}次 {}", i, sig);
                 tokio::time::sleep(Duration::from_millis(500)).await;
                 match client.get_signature_statuses(&[sig]).await {
