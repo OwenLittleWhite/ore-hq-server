@@ -1,13 +1,3 @@
-use std::{
-    collections::{HashMap, HashSet},
-    net::SocketAddr,
-    ops::{ControlFlow, Div, Range},
-    path::Path,
-    str::FromStr,
-    sync::Arc,
-    time::{Duration, SystemTime, UNIX_EPOCH},
-};
-
 use self::models::*;
 use ::ore_utils::AccountDeserialize;
 use app_database::{AppDatabase, AppDatabaseError};
@@ -32,6 +22,7 @@ use ore_utils::{
     get_proof_and_config_with_busses, get_register_ix, get_reset_ix, proof_pubkey,
     send_and_confirm, ORE_TOKEN_DECIMALS,
 };
+use rand::seq::SliceRandom;
 use rand::Rng;
 use serde::Deserialize;
 use solana_account_decoder::UiAccountEncoding;
@@ -39,11 +30,14 @@ use solana_client::{
     nonblocking::{pubsub_client::PubsubClient, rpc_client::RpcClient},
     rpc_config::{RpcAccountInfoConfig, RpcTransactionConfig},
 };
+use solana_program::{
+    native_token::{lamports_to_sol, LAMPORTS_PER_SOL},
+    pubkey::Pubkey,
+    system_instruction::transfer,
+};
 use solana_sdk::{
     commitment_config::CommitmentConfig,
     compute_budget::ComputeBudgetInstruction,
-    native_token::LAMPORTS_PER_SOL,
-    pubkey::Pubkey,
     signature::{read_keypair_file, Keypair, Signature},
     signer::Signer,
     system_instruction,
@@ -51,6 +45,15 @@ use solana_sdk::{
 };
 use solana_transaction_status::UiTransactionEncoding;
 use spl_associated_token_account::get_associated_token_address;
+use std::{
+    collections::{HashMap, HashSet},
+    net::SocketAddr,
+    ops::{ControlFlow, Div, Range},
+    path::Path,
+    str::FromStr,
+    sync::Arc,
+    time::{Duration, SystemTime, UNIX_EPOCH},
+};
 use tokio::{
     io::AsyncReadExt,
     sync::{
@@ -153,6 +156,14 @@ struct Args {
         global = true
     )]
     port: Option<String>,
+    #[arg(
+        long,
+        value_name = "jito tip",
+        help = "Jito tips",
+        default_value = "0",
+        global = true
+    )]
+    jito_tip: u64,
 }
 
 #[tokio::main]
@@ -175,6 +186,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         Some(port_str) => port_str.parse::<u16>()?,
         None => 3000, // Default port if not provided
     };
+
+    let jito_tip = args.jito_tip;
 
     let miner_ids: Vec<i32> = args
         .miner_ids
@@ -234,7 +247,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     info!("loaded wallet {}", wallet.pubkey().to_string());
 
     info!("establishing rpc connection...");
-    let rpc_client = RpcClient::new_with_commitment(rpc_url, CommitmentConfig::confirmed());
+    let mut rpc_client = RpcClient::new_with_commitment(rpc_url, CommitmentConfig::confirmed());
     info!("loading sol balance...");
     let balance = if let Ok(balance) = rpc_client.get_balance(&wallet.pubkey()).await {
         balance
@@ -499,7 +512,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let (all_clients_sender, mut all_clients_receiver) =
         tokio::sync::mpsc::unbounded_channel::<MessageInternalAllClients>();
 
-    let rpc_client = Arc::new(rpc_client);
+    let mut rpc_client = Arc::new(rpc_client);
     let app_proof = proof_ext.clone();
     let app_epoch_hashes = epoch_hashes.clone();
     let app_wallet = wallet_extension.clone();
@@ -514,7 +527,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // 克隆Arc，以便在提现线程中使用
     let is_withdrawing_clone = Arc::clone(&is_withdrawing);
     tokio::spawn(async move {
-        let rpc_client = app_rpc_client;
+        let mut rpc_client = app_rpc_client;
         let app_database = app_app_database;
         loop {
             let lock = app_proof.lock().await;
@@ -614,6 +627,38 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
                             let ix_mine = get_mine_ix(signer.pubkey(), solution, bus);
                             ixs.push(ix_mine);
+
+                            if jito_tip > 0 {
+                                rpc_client = Arc::new(RpcClient::new(
+                                    "https://mainnet.block-engine.jito.wtf/api/v1/transactions"
+                                        .to_string(),
+                                ));
+                            }
+                            if jito_tip > 0 {
+                                let tip_accounts = [
+                                    "96gYZGLnJYVFmbjzopPSU6QiEV5fGqZNyN9nmNhvrZU5",
+                                    "HFqU5x63VTqvQss8hp11i4wVV8bD44PvwucfZ2bU7gRe",
+                                    "Cw8CFyM9FkoMi7K7Crf6HNQqf4uEMzpKw6QNghXLvLkY",
+                                    "ADaUMid9yfUytqMBgopwjb2DTLSokTSzL1zt6iGPaS49",
+                                    "DfXygSm4jCyNCybVYYK6DwvWqjKee8pbDmJGcLWNDXjh",
+                                    "ADuUkR4vqLUMWXxW9gh6D6L8pMSawimctcNZ5pGwDcEt",
+                                    "DttWaMuVvTiduZRnguLF7jNxTgiMBZ1hyAumKUiL2KRL",
+                                    "3AVi9Tg9Uo68tJfuvoKvqKNWKkC5wPdSSdeBnizKZ6jT",
+                                ];
+                                ixs.push(transfer(
+                                    &signer.pubkey(),
+                                    &Pubkey::from_str(
+                                        &tip_accounts
+                                            .choose(&mut rand::thread_rng())
+                                            .unwrap()
+                                            .to_string(),
+                                    )
+                                    .unwrap(),
+                                    jito_tip,
+                                ));
+
+                                info!("Jito tip: {} SOL", lamports_to_sol(jito_tip));
+                            }
 
                             if let Ok((hash, _slot)) = rpc_client
                                 .get_latest_blockhash_with_commitment(rpc_client.commitment())
