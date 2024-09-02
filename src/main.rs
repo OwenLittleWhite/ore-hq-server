@@ -627,13 +627,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
                             let ix_mine = get_mine_ix(signer.pubkey(), solution, bus);
                             ixs.push(ix_mine);
-
-                            if jito_tip > 0 {
-                                rpc_client = Arc::new(RpcClient::new(
-                                    "https://mainnet.block-engine.jito.wtf/api/v1/transactions"
-                                        .to_string(),
-                                ));
-                            }
+                            let jito_client = Arc::new(RpcClient::new(
+                                "https://mainnet.block-engine.jito.wtf/api/v1/transactions"
+                                    .to_string(),
+                            ));
                             if jito_tip > 0 {
                                 let tip_accounts = [
                                     "96gYZGLnJYVFmbjzopPSU6QiEV5fGqZNyN9nmNhvrZU5",
@@ -670,7 +667,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                 tx.sign(&[&signer], hash);
                                 info!("Sending signed tx...");
                                 info!("attempt: {}", i + 1);
-                                let sig = send_and_confirm(&rpc_client, tx, 10).await;
+                                let send_client = if jito_tip > 0 {
+                                    jito_client.clone()
+                                } else {
+                                    rpc_client.clone()
+                                };
+                                let sig = send_and_confirm(&send_client, tx, 10).await;
 
                                 match sig {
                                     Ok(sig) => {
