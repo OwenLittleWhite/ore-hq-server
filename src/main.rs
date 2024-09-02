@@ -672,7 +672,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                 } else {
                                     rpc_client.clone()
                                 };
-                                let sig = send_and_confirm(&send_client, tx, 10).await;
+                                let sig = send_and_confirm(&send_client, &rpc_client, tx, 10).await;
 
                                 match sig {
                                     Ok(sig) => {
@@ -1041,7 +1041,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
                         tx.sign(&[&wallet], hash);
 
-                        let result = send_and_confirm(&rpc_client, tx, 50).await;
+                        let result = send_and_confirm(&rpc_client, &rpc_client, tx, 50).await;
                         match result {
                             Ok(sig) => {
                                 // TODO: use transacions, or at least put them into one query
@@ -1710,7 +1710,7 @@ async fn post_claim(
 
                 tx.sign(&[&wallet], hash);
 
-                let result = send_and_confirm(&rpc_client, tx, 50).await;
+                let result = send_and_confirm(&rpc_client, &rpc_client, tx, 50).await;
                 match result {
                     Ok(sig) => {
                         info!("Miner successfully claimed.\nSig: {}", sig.to_string());

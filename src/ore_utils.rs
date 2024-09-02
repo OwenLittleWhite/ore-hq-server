@@ -179,6 +179,7 @@ pub async fn get_proof_and_config_with_busses(
 }
 
 pub async fn send_and_confirm(
+    send_client: &RpcClient,
     client: &RpcClient,
     tx: Transaction,
     times: u8,
@@ -192,7 +193,10 @@ pub async fn send_and_confirm(
         min_context_slot: None,
     };
     // Send transaction
-    match client.send_transaction_with_config(&tx, send_cfg).await {
+    match send_client
+        .send_transaction_with_config(&tx, send_cfg)
+        .await
+    {
         Ok(sig) => {
             // Confirm transaction
             'confirm: for i in 0..times {
