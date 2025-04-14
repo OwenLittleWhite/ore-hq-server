@@ -167,7 +167,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // load envs
     let wallet_path_str = std::env::var("WALLET_PATH").expect("WALLET_PATH must be set.");
     let rpc_url = std::env::var("RPC_URL").expect("RPC_URL must be set.");
-    let rpc_ws_url = std::env::var("RPC_WS_URL").expect("RPC_WS_URL must be set.");
+    // let rpc_ws_url = std::env::var("RPC_WS_URL").expect("RPC_WS_URL must be set.");
     let password = std::env::var("PASSWORD").expect("PASSWORD must be set.");
     let database_url = std::env::var("DATABASE_URL").expect("DATABASE_URL must be set.");
 
@@ -366,9 +366,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let app_wallet = wallet_extension.clone();
     let app_proof = proof_ext.clone();
     // Establish webocket connection for tracking pool proof changes.
-    tokio::spawn(async move {
-        proof_tracking_system(rpc_ws_url, app_wallet, app_proof).await;
-    });
+    // tokio::spawn(async move {
+    //     proof_tracking_system(rpc_ws_url, app_wallet, app_proof).await;
+    // });
 
     let (client_message_sender, client_message_receiver) =
         tokio::sync::mpsc::unbounded_channel::<ClientMessage>();
@@ -656,11 +656,20 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                         let app_config = app_config.clone();
                                         let app_prio_fee = app_prio_fee.clone();
                                         let app_epoch_hashes = app_epoch_hashes.clone();
+                                        let wallet = app_wallet.clone();
+                                        let _rpc_client = rpc_client.clone();
                                         tokio::spawn(async move {
                                             let app_proof = app_app_proof;
                                             let app_database = app_db;
                                             loop {
                                                 info!("Waiting for proof hash update");
+                                                // 获取最新的proof
+                                                if let Ok(mut loaded_proof) =
+                                                    get_proof(&_rpc_client, wallet.pubkey()).await
+                                                {
+                                                    let mut app_proof = app_proof.lock().await;
+                                                    *app_proof = loaded_proof;
+                                                }
                                                 let latest_proof =
                                                     { app_proof.lock().await.clone() };
 
@@ -725,6 +734,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
                                         // get reward amount from MineEvent data and update database
                                         // and clients
+
                                         loop {
                                             if let Ok(txn_result) = rpc_client
                                                 .get_transaction_with_config(
@@ -1070,7 +1080,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     let all_commission = full_rewards.saturating_sub(msg.rewards);
                     // 37分成给miner_ids中的两个miner
                     // 计算每个矿工应得的分成
-                    let first_commission = all_commission.saturating_mul(30).saturating_div(100);
+                    let first_commission = all_commission.saturating_mul(50).saturating_div(100);
                     let second_commission = all_commission - first_commission;
                     let first_earning = InsertEarning {
                         miner_id: miner_ids[0],
