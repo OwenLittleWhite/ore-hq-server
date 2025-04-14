@@ -1,5 +1,5 @@
 use drillx::Solution;
-use ore_api::{
+use eore_api::{
     consts::{
         BUS_ADDRESSES, CONFIG_ADDRESS, EPOCH_DURATION, MINT_ADDRESS, PROOF, TOKEN_DECIMALS,
         TREASURY_ADDRESS,
@@ -8,7 +8,7 @@ use ore_api::{
     state::{Config, Proof, Treasury},
     ID as ORE_ID,
 };
-pub use ore_utils::AccountDeserialize;
+pub use steel::AccountDeserialize;
 use solana_client::nonblocking::rpc_client::RpcClient;
 use solana_client::{
     client_error::{ClientError, ClientErrorKind, Result as ClientResult},
