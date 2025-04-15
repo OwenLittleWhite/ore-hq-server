@@ -544,7 +544,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         info!("Withdrawing in progress, waiting...");
                         tokio::time::sleep(Duration::from_millis(1000)).await;
                     }
-                    for i in 0..5 {
+                    for i in 0..20 {
                         let reader = app_epoch_hashes.read().await;
                         let solution = reader.best_hash.solution.clone();
                         drop(reader);
