@@ -1,22 +1,30 @@
-use drillx::Solution;
 use bytemuck::{Pod, Zeroable};
+use drillx::Solution;
 use eore_api::{
     consts::{
         BUS_ADDRESSES, CONFIG_ADDRESS, EPOCH_DURATION, MINT_ADDRESS, PROOF, TOKEN_DECIMALS,
         TREASURY_ADDRESS,
     },
+    error::OreError,
     sdk,
     state::{Config, Proof, Treasury},
     ID as ORE_ID,
 };
-use num_enum::TryFromPrimitive;
 use eore_boost_api::state::{boost_pda, stake_pda};
-pub use steel::AccountDeserialize;
+use num_enum::TryFromPrimitive;
+use ore_miner_delegation::{
+    impl_instruction_from_bytes, impl_to_bytes, instruction,
+    pda::delegated_stake_pda,
+    pda::managed_proof_pda,
+    state::{DelegatedBoost, DelegatedBoostV2, DelegatedStake},
+    utils::AccountDeserializeV1,
+};
 use solana_client::nonblocking::rpc_client::RpcClient;
 use solana_client::{
     client_error::{ClientError, ClientErrorKind, Result as ClientResult},
     rpc_config::RpcSendTransactionConfig,
 };
+use solana_program::{instruction::AccountMeta, system_program};
 use solana_sdk::{
     account::ReadableAccount,
     clock::Clock,
@@ -27,16 +35,12 @@ use solana_sdk::{
     sysvar,
     transaction::Transaction,
 };
-use solana_program::{
-    instruction::{AccountMeta},
-    system_program,
-};
 use solana_transaction_status::{TransactionConfirmationStatus, UiTransactionEncoding};
 use spl_associated_token_account::get_associated_token_address;
 use std::time::{SystemTime, UNIX_EPOCH};
 use std::{str::FromStr, time::Duration};
+pub use steel::AccountDeserialize;
 use tracing::{error, info};
-use ore_miner_delegation::{instruction, impl_instruction_from_bytes, impl_to_bytes,state::{DelegatedBoost, DelegatedBoostV2, DelegatedStake}, utils::AccountDeserializeV1, pda::managed_proof_pda,pda::delegated_stake_pda };
 
 pub const ORE_TOKEN_DECIMALS: u8 = TOKEN_DECIMALS;
 
@@ -90,7 +94,7 @@ impl Instructions {
 impl_to_bytes!(MineArgs);
 impl_instruction_from_bytes!(MineArgs);
 pub fn mine_with_boost(miner: Pubkey, bus: Pubkey, solution: Solution) -> Instruction {
-    let managed_proof_address =  managed_proof_pda(miner);
+    let managed_proof_address = managed_proof_pda(miner);
     let ore_proof_address = eore_api::state::proof_pda(managed_proof_address.0);
     let delegated_stake_address = eore_boost_api::state::stake_pda(miner, miner);
     let boost_config = eore_boost_api::state::config_pda();
@@ -108,7 +112,7 @@ pub fn mine_with_boost(miner: Pubkey, bus: Pubkey, solution: Solution) -> Instru
         AccountMeta::new_readonly(eore_api::id(), false),
         AccountMeta::new_readonly(system_program::id(), false),
         AccountMeta::new_readonly(boost_config.0, false),
-        AccountMeta::new(boost_proof.0, false)
+        AccountMeta::new(boost_proof.0, false),
     ];
 
     Instruction {
@@ -126,10 +130,20 @@ pub fn mine_with_boost(miner: Pubkey, bus: Pubkey, solution: Solution) -> Instru
         .concat(),
     }
 }
-pub fn get_mine_with_global_boost_ix(signer: Pubkey, solution: Solution, bus: usize) -> Instruction {
+pub fn get_mine_with_global_boost_ix(
+    signer: Pubkey,
+    solution: Solution,
+    bus: usize,
+) -> Instruction {
     // mine_with_boost(signer, BUS_ADDRESSES[bus], solution)
     let boost_config_address = eore_boost_api::state::config_pda().0;
-    sdk::mine(signer,signer, BUS_ADDRESSES[bus], solution, boost_config_address)
+    sdk::mine(
+        signer,
+        signer,
+        BUS_ADDRESSES[bus],
+        solution,
+        boost_config_address,
+    )
 }
 
 pub fn get_register_ix(signer: Pubkey) -> Instruction {
@@ -147,7 +161,6 @@ pub fn get_claim_ix(signer: Pubkey, beneficiary: Pubkey, claim_amount: u64) -> I
 pub fn get_stake_ix(signer: Pubkey, sender: Pubkey, stake_amount: u64) -> Instruction {
     instruction::delegate_stake(signer, sender, stake_amount)
 }
-
 
 pub fn get_ore_mint() -> Pubkey {
     MINT_ADDRESS
@@ -294,19 +307,52 @@ pub async fn send_and_confirm(
                         for status in signature_statuses.value {
                             if let Some(status) = status {
                                 if let Some(err) = status.err {
-                                    error!("GET signature status Error: {}", err);
-                                    return Err(ClientError {
-                                        request: None,
-                                        kind: ClientErrorKind::Custom(err.to_string()),
-                                    });
+                                    match err {
+                                        // Instruction error
+                                        solana_sdk::transaction::TransactionError::InstructionError(_, err) => {
+                                            match err {
+                                                // Custom instruction error, parse into OreError
+                                                solana_program::instruction::InstructionError::Custom(err_code) => {
+                                                    match err_code {
+                                                        e if e == OreError::NeedsReset as u32 => {
+                                                            error!("Needs reset. Retrying...");
+                                                            break 'confirm;
+                                                        },
+                                                        _ => {
+                                                            error!("{}", &err.to_string());
+                                                            return Err(ClientError {
+                                                                request: None,
+                                                                kind: ClientErrorKind::Custom(err.to_string()),
+                                                            });
+                                                        }
+                                                    }
+                                                },
+
+                                                // Non custom instruction error, return
+                                                _ => {
+                                                    error!("{}", &err.to_string());
+                                                    return Err(ClientError {
+                                                        request: None,
+                                                        kind: ClientErrorKind::Custom(err.to_string()),
+                                                    });
+                                                }
+                                            }
+                                        },
+
+                                        // Non instruction error, return
+                                        _ => {
+                                            error!("{}", &err.to_string());
+                                            return Err(ClientError {
+                                                request: None,
+                                                kind: ClientErrorKind::Custom(err.to_string()),
+                                            });
+                                        }
+                                    }
                                 } else if let Some(confirmation) = status.confirmation_status {
                                     match confirmation {
-                                        TransactionConfirmationStatus::Processed => {
-                                            info!("processing... {}", sig)
-                                        }
+                                        TransactionConfirmationStatus::Processed => {}
                                         TransactionConfirmationStatus::Confirmed
                                         | TransactionConfirmationStatus::Finalized => {
-                                            info!("OK {}", sig);
                                             return Ok(sig);
                                         }
                                     }
@@ -317,7 +363,7 @@ pub async fn send_and_confirm(
 
                     // Handle confirmation errors
                     Err(err) => {
-                        error!("failed to get signature status Error: {}", err);
+                        error!("{}", &err.kind().to_string());
                     }
                 }
             }

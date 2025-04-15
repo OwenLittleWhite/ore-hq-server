@@ -9,7 +9,6 @@ use std::{
 };
 
 use self::models::*;
-use steel::AccountDeserialize;
 use app_database::{AppDatabase, AppDatabaseError};
 use axum::{
     extract::{
@@ -25,8 +24,8 @@ use axum_extra::{headers::authorization::Basic, TypedHeader};
 use base64::{prelude::BASE64_STANDARD, Engine};
 use clap::Parser;
 use drillx::Solution;
-use futures::{stream::SplitSink, SinkExt, StreamExt};
 use eore_api::{consts::BUS_COUNT, event::MineEvent, state::Proof};
+use futures::{stream::SplitSink, SinkExt, StreamExt};
 use ore_utils::{
     get_auth_ix, get_cutoff, get_mine_with_global_boost_ix, get_ore_mint, get_proof,
     get_proof_and_config_with_busses, get_register_ix, get_reset_ix, proof_pubkey,
@@ -36,6 +35,7 @@ use rand::Rng;
 use serde::Deserialize;
 use solana_account_decoder::UiAccountEncoding;
 use solana_client::{
+    client_error::ClientErrorKind,
     nonblocking::{pubsub_client::PubsubClient, rpc_client::RpcClient},
     rpc_config::{RpcAccountInfoConfig, RpcTransactionConfig},
 };
@@ -51,6 +51,7 @@ use solana_sdk::{
 };
 use solana_transaction_status::UiTransactionEncoding;
 use spl_associated_token_account::get_associated_token_address;
+use steel::AccountDeserialize;
 use tokio::{
     io::AsyncReadExt,
     sync::{
@@ -612,7 +613,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                 }
                             }
 
-                            let ix_mine = get_mine_with_global_boost_ix(signer.pubkey(), solution, bus);
+                            let ix_mine =
+                                get_mine_with_global_boost_ix(signer.pubkey(), solution, bus);
                             ixs.push(ix_mine);
 
                             if let Ok((hash, _slot)) = rpc_client
@@ -863,6 +865,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                     Err(e) => {
                                         error!("Failed to send and confirm txn");
                                         error!("Error: {:?}", e);
+                                        if let ClientErrorKind::Custom(error_message) = &e.kind {
+                                            if error_message != "Confirmation timeout" {
+                                                break;
+                                            }
+                                        } else {
+                                            // Handle other types of ClientError
+                                            error!("Other error: {:?}", e);
+                                        }
 
                                         let latest_proof = { app_proof.lock().await.clone() };
                                         if old_proof.challenge.ne(&latest_proof.challenge) {
@@ -871,12 +881,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                             break;
                                         }
                                         info!("increasing prio fees");
-                                        {
-                                            let mut prio_fee = app_prio_fee.lock().await;
-                                            if *prio_fee < 3_000 {
-                                                *prio_fee += 200;
-                                            }
-                                        }
+                                        // {
+                                        //     let mut prio_fee = app_prio_fee.lock().await;
+                                        //     if *prio_fee < 3_000 {
+                                        //         *prio_fee += 200;
+                                        //     }
+                                        // }
                                         tokio::time::sleep(Duration::from_millis(2_000)).await;
                                     }
                                 }
@@ -982,8 +992,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         )
                     }
 
-                    let ix =
-                        eore_api::sdk::claim(wallet.pubkey(), miner_token_account, amount);
+                    let ix = eore_api::sdk::claim(wallet.pubkey(), miner_token_account, amount);
                     ixs.push(ix);
 
                     if let Ok((hash, _slot)) = rpc_client
