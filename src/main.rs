@@ -576,15 +576,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                 .as_secs();
                             let mut ixs = vec![];
                             let mut prio_fee = { app_prio_fee.lock().await.clone() };
-                            if difficulty >= 23 && difficulty < 25 {
-                                if prio_fee < 3_000 {
-                                    prio_fee = 3_000
-                                }
-                            } else if difficulty >= 25 {
-                                if prio_fee < 5_000 {
-                                    prio_fee = 5_000
-                                }
-                            }
+                            // if difficulty >= 23 && difficulty < 25 {
+                            //     if prio_fee < 3_000 {
+                            //         prio_fee = 3_000
+                            //     }
+                            // } else if difficulty >= 25 {
+                            //     if prio_fee < 5_000 {
+                            //         prio_fee = 5_000
+                            //     }
+                            // }
                             // TODO
                             // let prio_fee = args.priority_fee;
 
@@ -594,7 +594,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                             });
 
                             let cu_limit_ix =
-                                ComputeBudgetInstruction::set_compute_unit_limit(480000);
+                                ComputeBudgetInstruction::set_compute_unit_limit(750_000);
                             ixs.push(cu_limit_ix);
 
                             let prio_fee_ix =
@@ -751,7 +751,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
                                                     if let Ok(mine_event) = bytemuck::try_from_bytes::<MineEvent>(&bytes) {
                                                         info!("MineEvent: {:?}", mine_event);
-                                                        let rewards = mine_event.net_reward;
+                                                        let rewards: u64 = mine_event.net_reward;
                                                         // handle sending mine success message
                                                         let mut total_hashpower: u64 = 0;
                                                         for submission in submissions.iter() {
@@ -871,12 +871,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                             break;
                                         }
                                         info!("increasing prio fees");
-                                        {
-                                            let mut prio_fee = app_prio_fee.lock().await;
-                                            if *prio_fee < 10_000 {
-                                                *prio_fee += 1_000;
-                                            }
-                                        }
+                                        // {
+                                        //     let mut prio_fee = app_prio_fee.lock().await;
+                                        //     if *prio_fee < 10_000 {
+                                        //         *prio_fee += 1_000;
+                                        //     }
+                                        // }
                                         tokio::time::sleep(Duration::from_millis(2_000)).await;
                                     }
                                 }
@@ -1070,7 +1070,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     let all_commission = full_rewards.saturating_sub(msg.rewards);
                     // 37分成给miner_ids中的两个miner
                     // 计算每个矿工应得的分成
-                    let first_commission = all_commission.saturating_mul(30).saturating_div(100);
+                    let first_commission = all_commission.saturating_mul(50).saturating_div(100);
                     let second_commission = all_commission - first_commission;
                     let first_earning = InsertEarning {
                         miner_id: miner_ids[0],

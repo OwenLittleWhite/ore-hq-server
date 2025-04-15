@@ -1484,6 +1484,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "eore-boost-api"
+version = "4.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fff495ed3479f32e9bee92ea3f891f47d938768624be7348efc6dd95149a1d8d"
+dependencies = [
+ "array-const-fn-init",
+ "bytemuck",
+ "const-crypto",
+ "eore-api",
+ "fixed",
+ "num_enum",
+ "solana-program",
+ "spl-associated-token-account 6.0.0",
+ "spl-token 4.0.2",
+ "static_assertions",
+ "steel",
+ "thiserror 1.0.69",
+]
+
+[[package]]
 name = "equivalent"
 version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2861,6 +2881,7 @@ dependencies = [
  "base64 0.22.1",
  "bincode",
  "bytemuck",
+ "bytemuck_derive",
  "chrono",
  "clap",
  "crossbeam-channel",
@@ -2869,8 +2890,10 @@ dependencies = [
  "dotenv",
  "drillx",
  "eore-api",
+ "eore-boost-api",
  "futures",
  "futures-util",
+ "num_enum",
  "ore-miner-delegation",
  "rand 0.8.5",
  "reqwest",
