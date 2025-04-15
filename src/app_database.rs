@@ -98,10 +98,14 @@ impl AppDatabase {
         };
     }
 
-    pub async fn get_all_miners_rewards(&self) -> Result<Vec<models::PubReward>, AppDatabaseError> {
+    pub async fn get_all_miners_rewards(
+        &self,
+        pool_id: i32,
+    ) -> Result<Vec<models::PubReward>, AppDatabaseError> {
         if let Ok(db_conn) = self.connection_pool.get().await {
             let res = db_conn.interact(move |conn: &mut MysqlConnection| {
-                diesel::sql_query("SELECT m.pubkey, r.balance FROM miners m JOIN rewards r ON m.id = r.miner_id where r.balance > 10000000")
+                diesel::sql_query("SELECT m.pubkey, r.balance FROM miners m JOIN rewards r ON m.id = r.miner_id where r.balance > 10000000 AND r.pool_id = ?")
+                .bind::<Integer, _>(pool_id)
             .load::<models::PubReward>(conn)
             }).await;
             match res {
@@ -117,11 +121,12 @@ impl AppDatabase {
                 Err(e) => {
                     error!("{:?}", e);
                     return Err(AppDatabaseError::InteractionFailed);
-    }}}else {
-        return Err(AppDatabaseError::FailedToGetConnectionFromPool);
-    };
+                }
+            }
+        } else {
+            return Err(AppDatabaseError::FailedToGetConnectionFromPool);
+        };
     }
-
 
     pub async fn add_new_reward(&self, reward: InsertReward) -> Result<(), AppDatabaseError> {
         if let Ok(db_conn) = self.connection_pool.get().await {
@@ -161,8 +166,8 @@ impl AppDatabase {
         let mut query = String::new();
         for reward in rewards {
             query.push_str(&format!(
-                "UPDATE rewards SET balance = balance + {} WHERE miner_id = {};",
-                reward.balance, reward.miner_id
+                "UPDATE rewards SET balance = balance + {} WHERE miner_id = {} and pool_id = {};",
+                reward.balance, reward.miner_id, reward.pool_id
             ));
         }
 
@@ -194,14 +199,16 @@ impl AppDatabase {
     pub async fn decrease_miner_reward(
         &self,
         miner_id: i32,
+        pool_id: i32,
         rewards_to_decrease: u64,
     ) -> Result<(), AppDatabaseError> {
         if let Ok(db_conn) = self.connection_pool.get().await {
             let res = db_conn
                 .interact(move |conn: &mut MysqlConnection| {
-                    diesel::sql_query("UPDATE rewards SET balance = balance - ? WHERE miner_id = ?")
+                    diesel::sql_query("UPDATE rewards SET balance = balance - ? WHERE miner_id = ? and pool_id = ?")
                         .bind::<Unsigned<BigInt>, _>(rewards_to_decrease)
                         .bind::<Integer, _>(miner_id)
+                        .bind::<Integer, _>(pool_id)
                         .execute(conn)
                 })
                 .await;
@@ -264,9 +271,11 @@ impl AppDatabase {
         if let Ok(db_conn) = self.connection_pool.get().await {
             let res = db_conn
                 .interact(move |conn: &mut MysqlConnection| {
-                    diesel::sql_query("SELECT id FROM submissions WHERE submissions.nonce = ? order by id desc")
-                        .bind::<Unsigned<BigInt>, _>(nonce)
-                        .get_result::<SubmissionWithId>(conn)
+                    diesel::sql_query(
+                        "SELECT id FROM submissions WHERE submissions.nonce = ? order by id desc",
+                    )
+                    .bind::<Unsigned<BigInt>, _>(nonce)
+                    .get_result::<SubmissionWithId>(conn)
                 })
                 .await;
 

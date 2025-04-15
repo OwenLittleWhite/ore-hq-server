@@ -1,7 +1,7 @@
 use chrono::NaiveDateTime;
 use diesel::prelude::*;
+use diesel::sql_types::{BigInt, Text, Unsigned};
 use serde::{Deserialize, Serialize};
-use diesel::sql_types::{Text, Unsigned, BigInt};
 
 #[derive(Debug, Serialize, Deserialize, Queryable, Selectable, QueryableByName)]
 #[diesel(table_name = crate::schema::challenges)]
@@ -59,7 +59,7 @@ pub struct Miner {
     pub enabled: bool,
 }
 
-#[derive(Debug, Serialize, Deserialize, Queryable, Selectable, QueryableByName)]
+#[derive(Debug, Serialize, Deserialize, Queryable, Selectable, QueryableByName, Clone)]
 #[diesel(table_name = crate::schema::pools)]
 #[diesel(check_for_backend(diesel::mysql::Mysql))]
 pub struct Pool {
@@ -116,7 +116,7 @@ pub struct TxnId {
     pub id: i32,
 }
 
-#[derive(Debug,Clone, Serialize, Deserialize, Queryable, Selectable, QueryableByName)]
+#[derive(Debug, Clone, Serialize, Deserialize, Queryable, Selectable, QueryableByName)]
 #[diesel(table_name = crate::schema::txns)]
 #[diesel(check_for_backend(diesel::mysql::Mysql))]
 pub struct InsertTxn {
@@ -139,6 +139,7 @@ pub struct InsertReward {
 pub struct UpdateReward {
     pub miner_id: i32,
     pub balance: u64,
+    pub pool_id: i32,
 }
 
 #[derive(Debug, Serialize, Deserialize, Queryable, Selectable, QueryableByName)]

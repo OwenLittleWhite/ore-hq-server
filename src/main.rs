@@ -931,6 +931,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let _app_app_database = app_database.clone();
     let _app_wallet = wallet_extension.clone();
     let is_withdrawing_clone = Arc::clone(&is_withdrawing);
+    let app_config: Arc<Config> = config.clone();
     tokio::spawn(async move {
         let rpc_client = _app_rpc_client;
         let app_database = _app_app_database;
@@ -939,8 +940,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             // 等待 1 小时
             {
                 info!("system claim ore");
-                // 先查出所有账户的rewards，然后一次打账
-                let mut miner_rewards = app_database.get_all_miners_rewards().await.unwrap();
+                // 先查出所有账户的rewards，然后一次打账, TODO pool_id
+                let mut miner_rewards = app_database
+                    .get_all_miners_rewards(app_config.pool_id)
+                    .await
+                    .unwrap();
                 info!("miner_rewards: {}", miner_rewards.len());
                 // 开始提现，锁定is_withdrawing并设置为true
                 let mut withdrawing = is_withdrawing_clone.lock().await;
@@ -1015,8 +1019,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                     .get_pool_by_authority_pubkey(wallet.pubkey().to_string())
                                     .await
                                     .unwrap();
+                                let db_pool_clone = db_pool.clone();
                                 let _ = app_database
-                                    .decrease_miner_reward(miner.id, amount)
+                                    .decrease_miner_reward(miner.id, db_pool_clone.id, amount)
                                     .await
                                     .unwrap();
                                 let _ = app_database
@@ -1090,6 +1095,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     let first_reward = UpdateReward {
                         miner_id: miner_ids[0],
                         balance: first_commission,
+                        pool_id: app_config.pool_id,
                     };
                     let second_earning = InsertEarning {
                         miner_id: miner_ids[1],
@@ -1100,6 +1106,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     let second_reward = UpdateReward {
                         miner_id: miner_ids[1],
                         balance: second_commission,
+                        pool_id: app_config.pool_id,
                     };
                     i_earnings.push(first_earning);
                     i_rewards.push(first_reward);
@@ -1130,6 +1137,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         let new_reward = UpdateReward {
                             miner_id: *miner_id,
                             balance: earned_rewards,
+                            pool_id: app_config.pool_id,
                         };
 
                         i_earnings.push(new_earning);
@@ -1149,10 +1157,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                             let share = earned_rewards_dec.div(pool_rewards_dec as f64) * 100.0;
 
                             let message = format!(
-                                "Submitted Difficulty: {}\nPool Earned: {} ORE.\nPool Balance: {}\nMiner Earned: {} ORE for difficulty: {}\n  Share: {:.3}% \n Active Miners: {}",
+                                "Submitted Difficulty: {}\nPool Earned: {} ORE.\nMiner Earned: {} ORE for difficulty: {}\n  Share: {:.3}% \n Active Miners: {}",
                                 msg.difficulty,
                                 pool_rewards_dec,
-                                msg.total_balance,
                                 earned_rewards_dec,
                                 supplied_diff,
                                 share,
@@ -1184,7 +1191,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         }
                     }
                     if i_rewards.len() > 0 {
-                        if let Ok(_) = app_database.update_rewards(i_rewards).await {
+                        if let Ok(_) = app_database
+                            .update_rewards(aggregate_rewards(i_rewards))
+                            .await
+                        {
                             info!("Successfully updated rewards");
                         } else {
                             error!("Failed to bulk update rewards");
@@ -1262,24 +1272,22 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-fn aggregate_rewards(mut rewards: Vec<UpdateReward>) -> Vec<UpdateReward> {
-    let mut aggregated_balances: HashMap<i32, u64> = HashMap::new();
+pub fn aggregate_rewards(i_rewards: Vec<UpdateReward>) -> Vec<UpdateReward> {
+    let mut reward_map: HashMap<(i32, i32), u64> = HashMap::new();
 
-    // 遍历原始向量并累加每个 miner_id 的 balance
-    for reward in rewards.drain(..) {
-        let balance = aggregated_balances
-            .entry(reward.miner_id.clone())
-            .or_insert(0);
-        *balance += reward.balance;
+    for reward in i_rewards {
+        let key = (reward.pool_id, reward.miner_id);
+        *reward_map.entry(key).or_insert(0) += reward.balance;
     }
 
-    // 创建新的向量，其中包含去重后的 miner_id 和它们的总 balance
-    let mut aggregated_rewards: Vec<UpdateReward> = aggregated_balances
+    reward_map
         .into_iter()
-        .map(|(miner_id, balance)| UpdateReward { miner_id, balance })
-        .collect();
-
-    aggregated_rewards
+        .map(|((pool_id, miner_id), balance)| UpdateReward {
+            pool_id,
+            miner_id,
+            balance,
+        })
+        .collect()
 }
 
 async fn get_pool_authority_pubkey(
@@ -1686,8 +1694,9 @@ async fn post_claim(
                             .get_pool_by_authority_pubkey(wallet.pubkey().to_string())
                             .await
                             .unwrap();
+                        let db_pool_clone = db_pool.clone();
                         let _ = app_database
-                            .decrease_miner_reward(miner.id, amount)
+                            .decrease_miner_reward(miner.id, db_pool_clone.id, amount)
                             .await
                             .unwrap();
                         let _ = app_database
