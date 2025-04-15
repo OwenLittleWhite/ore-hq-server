@@ -1182,7 +1182,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     }
                     if i_earnings.len() > 0 {
                         if let Ok(_) = app_database
-                            .add_new_earnings_batch(i_earnings.clone())
+                            .add_new_earnings_batch(aggregate_earnings(i_earnings))
                             .await
                         {
                             info!("Successfully added earnings batch");
@@ -1287,6 +1287,27 @@ pub fn aggregate_rewards(i_rewards: Vec<UpdateReward>) -> Vec<UpdateReward> {
             miner_id,
             balance,
         })
+        .collect()
+}
+
+pub fn aggregate_earnings(i_earnings: Vec<InsertEarning>) -> Vec<InsertEarning> {
+    let mut earning_map: HashMap<(i32, i32, i32), u64> = HashMap::new();
+
+    for earning in i_earnings {
+        let key = (earning.miner_id, earning.pool_id, earning.challenge_id);
+        *earning_map.entry(key).or_insert(0) += earning.amount;
+    }
+
+    earning_map
+        .into_iter()
+        .map(
+            |((miner_id, pool_id, challenge_id), amount)| InsertEarning {
+                miner_id,
+                pool_id,
+                challenge_id,
+                amount,
+            },
+        )
         .collect()
 }
 
