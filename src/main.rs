@@ -696,7 +696,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                                             app_prio_fee.lock().await;
                                                         let mut decrease_amount = 0;
                                                         if *prio_fee > 1_000 {
-                                                            decrease_amount = 1_000;
+                                                            decrease_amount = 200;
                                                         }
 
                                                         *prio_fee = prio_fee
@@ -751,7 +751,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
                                                     if let Ok(mine_event) = bytemuck::try_from_bytes::<MineEvent>(&bytes) {
                                                         info!("MineEvent: {:?}", mine_event);
-                                                        let rewards: u64 = mine_event.net_reward;
+                                                        let rewards: u64 = mine_event.net_base_reward;
                                                         // handle sending mine success message
                                                         let mut total_hashpower: u64 = 0;
                                                         for submission in submissions.iter() {
@@ -871,12 +871,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                             break;
                                         }
                                         info!("increasing prio fees");
-                                        // {
-                                        //     let mut prio_fee = app_prio_fee.lock().await;
-                                        //     if *prio_fee < 10_000 {
-                                        //         *prio_fee += 1_000;
-                                        //     }
-                                        // }
+                                        {
+                                            let mut prio_fee = app_prio_fee.lock().await;
+                                            if *prio_fee < 3_000 {
+                                                *prio_fee += 200;
+                                            }
+                                        }
                                         tokio::time::sleep(Duration::from_millis(2_000)).await;
                                     }
                                 }
