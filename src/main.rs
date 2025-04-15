@@ -9,7 +9,7 @@ use std::{
 };
 
 use self::models::*;
-use ::ore_utils::AccountDeserialize;
+use steel::AccountDeserialize;
 use app_database::{AppDatabase, AppDatabaseError};
 use axum::{
     extract::{
@@ -26,9 +26,9 @@ use base64::{prelude::BASE64_STANDARD, Engine};
 use clap::Parser;
 use drillx::Solution;
 use futures::{stream::SplitSink, SinkExt, StreamExt};
-use ore_api::{consts::BUS_COUNT, event::MineEvent, state::Proof};
+use eore_api::{consts::BUS_COUNT, event::MineEvent, state::Proof};
 use ore_utils::{
-    get_auth_ix, get_cutoff, get_mine_ix, get_ore_mint, get_proof,
+    get_auth_ix, get_cutoff, get_mine_with_global_boost_ix, get_ore_mint, get_proof,
     get_proof_and_config_with_busses, get_register_ix, get_reset_ix, proof_pubkey,
     send_and_confirm, ORE_TOKEN_DECIMALS,
 };
@@ -612,7 +612,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                 }
                             }
 
-                            let ix_mine = get_mine_ix(signer.pubkey(), solution, bus);
+                            let ix_mine = get_mine_with_global_boost_ix(signer.pubkey(), solution, bus);
                             ixs.push(ix_mine);
 
                             if let Ok((hash, _slot)) = rpc_client
@@ -761,7 +761,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
                                                     if let Ok(mine_event) = bytemuck::try_from_bytes::<MineEvent>(&bytes) {
                                                         info!("MineEvent: {:?}", mine_event);
-                                                        let rewards = mine_event.reward;
+                                                        let rewards = mine_event.net_reward;
                                                         // handle sending mine success message
                                                         let mut total_hashpower: u64 = 0;
                                                         for submission in submissions.iter() {
@@ -975,7 +975,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                 spl_associated_token_account::instruction::create_associated_token_account(
                                     &wallet.pubkey(),
                                     &user_pubkey,
-                                    &ore_api::consts::MINT_ADDRESS,
+                                    &eore_api::consts::MINT_ADDRESS,
                                     &spl_token::id(),
                                 ),
                             )
@@ -986,14 +986,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                             spl_associated_token_account::instruction::create_associated_token_account(
                                 &wallet.pubkey(),
                                 &user_pubkey,
-                                &ore_api::consts::MINT_ADDRESS,
+                                &eore_api::consts::MINT_ADDRESS,
                                 &spl_token::id(),
                             ),
                         )
                     }
 
                     let ix =
-                        ore_api::instruction::claim(wallet.pubkey(), miner_token_account, amount);
+                        eore_api::sdk::claim(wallet.pubkey(), miner_token_account, amount);
                     ixs.push(ix);
 
                     if let Ok((hash, _slot)) = rpc_client
@@ -1522,7 +1522,7 @@ async fn get_miner_rewards(
         match res {
             Ok(rewards) => {
                 let decimal_bal =
-                    rewards.balance as f64 / 10f64.powf(ore_api::consts::TOKEN_DECIMALS as f64);
+                    rewards.balance as f64 / 10f64.powf(eore_api::consts::TOKEN_DECIMALS as f64);
                 let response = format!("{}", decimal_bal);
                 return Response::builder()
                     .status(StatusCode::OK)
@@ -1645,7 +1645,7 @@ async fn post_claim(
                         spl_associated_token_account::instruction::create_associated_token_account(
                             &wallet.pubkey(),
                             &user_pubkey,
-                            &ore_api::consts::MINT_ADDRESS,
+                            &eore_api::consts::MINT_ADDRESS,
                             &spl_token::id(),
                         ),
                     )
@@ -1656,13 +1656,13 @@ async fn post_claim(
                     spl_associated_token_account::instruction::create_associated_token_account(
                         &wallet.pubkey(),
                         &user_pubkey,
-                        &ore_api::consts::MINT_ADDRESS,
+                        &eore_api::consts::MINT_ADDRESS,
                         &spl_token::id(),
                     ),
                 )
             }
 
-            let ix = ore_api::instruction::claim(wallet.pubkey(), miner_token_account, amount);
+            let ix = eore_api::sdk::claim(wallet.pubkey(), miner_token_account, amount);
             ixs.push(ix);
 
             if let Ok((hash, _slot)) = rpc_client
@@ -2046,10 +2046,11 @@ async fn proof_tracking_system(ws_url: String, wallet: Arc<Keypair>, proof: Arc<
                         // if let Ok(bus) = Bus::try_from_bytes(&data_bytes) {
                         //     let _ = sender.send(AccountUpdatesData::BusData(*bus));
                         // }
-                        // if let Ok(ore_config) = ore_api::state::Config::try_from_bytes(&data_bytes) {
+                        // if let Ok(ore_config) = eore_api::state::Config::try_from_bytes(&data_bytes) {
                         //     let _ = sender.send(AccountUpdatesData::TreasuryConfigData(*ore_config));
                         // }
-                        if let Ok(new_proof) = Proof::try_from_bytes(&data_bytes) {
+                        let mut tmp = data_bytes.to_vec();
+                        if let Ok(new_proof) = Proof::try_from_bytes_mut(&mut tmp) {
                             info!("Got new proof data");
                             // let _ = sender.send(AccountUpdatesData::ProofData(*proof));
                             //

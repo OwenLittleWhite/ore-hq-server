@@ -4,7 +4,7 @@ use eore_api::{
         BUS_ADDRESSES, CONFIG_ADDRESS, EPOCH_DURATION, MINT_ADDRESS, PROOF, TOKEN_DECIMALS,
         TREASURY_ADDRESS,
     },
-    instruction,
+    sdk,
     state::{Config, Proof, Treasury},
     ID as ORE_ID,
 };
@@ -29,34 +29,35 @@ use spl_associated_token_account::get_associated_token_address;
 use std::time::{SystemTime, UNIX_EPOCH};
 use std::{str::FromStr, time::Duration};
 use tracing::{error, info};
-
+use ore_miner_delegation::{instruction, state::{DelegatedBoost, DelegatedBoostV2, DelegatedStake}, utils::AccountDeserializeV1, pda::managed_proof_pda};
 pub const ORE_TOKEN_DECIMALS: u8 = TOKEN_DECIMALS;
 
 pub fn get_auth_ix(signer: Pubkey) -> Instruction {
     let proof = proof_pubkey(signer);
 
-    instruction::auth(proof)
+    sdk::auth(proof)
 }
 
-pub fn get_mine_ix(signer: Pubkey, solution: Solution, bus: usize) -> Instruction {
-    instruction::mine(signer, signer, BUS_ADDRESSES[bus], solution)
+pub fn get_mine_with_global_boost_ix(signer: Pubkey, solution: Solution, bus: usize) -> Instruction {
+    instruction::mine_with_boost(signer, BUS_ADDRESSES[bus], solution)
 }
 
 pub fn get_register_ix(signer: Pubkey) -> Instruction {
-    instruction::open(signer, signer, signer)
+    sdk::open(signer, signer, signer)
 }
 
 pub fn get_reset_ix(signer: Pubkey) -> Instruction {
-    instruction::reset(signer)
+    eore_api::prelude::reset(signer)
 }
 
 pub fn get_claim_ix(signer: Pubkey, beneficiary: Pubkey, claim_amount: u64) -> Instruction {
-    instruction::claim(signer, beneficiary, claim_amount)
+    sdk::claim(signer, beneficiary, claim_amount)
 }
 
 pub fn get_stake_ix(signer: Pubkey, sender: Pubkey, stake_amount: u64) -> Instruction {
-    instruction::stake(signer, sender, stake_amount)
+    instruction::delegate_stake(signer, sender, stake_amount)
 }
+
 
 pub fn get_ore_mint() -> Pubkey {
     MINT_ADDRESS
@@ -70,7 +71,7 @@ pub fn get_ore_decimals() -> u8 {
     TOKEN_DECIMALS
 }
 
-pub async fn get_config(client: &RpcClient) -> Result<ore_api::state::Config, String> {
+pub async fn get_config(client: &RpcClient) -> Result<eore_api::state::Config, String> {
     let data = client.get_account_data(&CONFIG_ADDRESS).await;
     match data {
         Ok(data) => {
@@ -90,8 +91,8 @@ pub async fn get_proof_and_config_with_busses(
     authority: Pubkey,
 ) -> (
     Result<Proof, ()>,
-    Result<ore_api::state::Config, ()>,
-    Result<Vec<Result<ore_api::state::Bus, ()>>, ()>,
+    Result<eore_api::state::Config, ()>,
+    Result<Vec<Result<eore_api::state::Bus, ()>>, ()>,
 ) {
     let account_pubkeys = vec![
         proof_pubkey(authority),
@@ -114,55 +115,55 @@ pub async fn get_proof_and_config_with_busses(
         };
 
         let treasury_config = if let Some(data) = &datas[1] {
-            Ok(*ore_api::state::Config::try_from_bytes(data.data())
+            Ok(*eore_api::state::Config::try_from_bytes(data.data())
                 .expect("Failed to parse config account"))
         } else {
             Err(())
         };
         let bus_1 = if let Some(data) = &datas[2] {
-            Ok(*ore_api::state::Bus::try_from_bytes(data.data())
+            Ok(*eore_api::state::Bus::try_from_bytes(data.data())
                 .expect("Failed to parse bus1 account"))
         } else {
             Err(())
         };
         let bus_2 = if let Some(data) = &datas[3] {
-            Ok(*ore_api::state::Bus::try_from_bytes(data.data())
+            Ok(*eore_api::state::Bus::try_from_bytes(data.data())
                 .expect("Failed to parse bus2 account"))
         } else {
             Err(())
         };
         let bus_3 = if let Some(data) = &datas[4] {
-            Ok(*ore_api::state::Bus::try_from_bytes(data.data())
+            Ok(*eore_api::state::Bus::try_from_bytes(data.data())
                 .expect("Failed to parse bus3 account"))
         } else {
             Err(())
         };
         let bus_4 = if let Some(data) = &datas[5] {
-            Ok(*ore_api::state::Bus::try_from_bytes(data.data())
+            Ok(*eore_api::state::Bus::try_from_bytes(data.data())
                 .expect("Failed to parse bus4 account"))
         } else {
             Err(())
         };
         let bus_5 = if let Some(data) = &datas[6] {
-            Ok(*ore_api::state::Bus::try_from_bytes(data.data())
+            Ok(*eore_api::state::Bus::try_from_bytes(data.data())
                 .expect("Failed to parse bus5 account"))
         } else {
             Err(())
         };
         let bus_6 = if let Some(data) = &datas[7] {
-            Ok(*ore_api::state::Bus::try_from_bytes(data.data())
+            Ok(*eore_api::state::Bus::try_from_bytes(data.data())
                 .expect("Failed to parse bus6 account"))
         } else {
             Err(())
         };
         let bus_7 = if let Some(data) = &datas[8] {
-            Ok(*ore_api::state::Bus::try_from_bytes(data.data())
+            Ok(*eore_api::state::Bus::try_from_bytes(data.data())
                 .expect("Failed to parse bus7 account"))
         } else {
             Err(())
         };
         let bus_8 = if let Some(data) = &datas[9] {
-            Ok(*ore_api::state::Bus::try_from_bytes(data.data())
+            Ok(*eore_api::state::Bus::try_from_bytes(data.data())
                 .expect("Failed to parse bus1 account"))
         } else {
             Err(())
