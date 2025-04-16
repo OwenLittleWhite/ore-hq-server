@@ -7,3 +7,5 @@ whitelist.txt
 /logs
 
 ore-hq-server
+hq-server*
+hq-server-manager.cfg
