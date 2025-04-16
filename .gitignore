@@ -9,3 +9,4 @@ whitelist.txt
 ore-hq-server
 hq-server*
 hq-server-manager.cfg
+!hq-server-manager.sh
