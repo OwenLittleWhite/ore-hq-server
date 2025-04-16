@@ -574,6 +574,56 @@ impl AppDatabase {
         };
     }
 
+    pub async fn get_or_create_reward(
+        &self,
+        miner_id: i32,
+        pool_id: i32,
+    ) -> Result<models::Reward, AppDatabaseError> {
+        if let Ok(db_conn) = self.connection_pool.get().await {
+            let res = db_conn.interact(move |conn: &mut MysqlConnection| {
+                // 使用 INSERT ... ON DUPLICATE KEY UPDATE 语句
+                diesel::sql_query(
+                    r#"
+                    INSERT INTO rewards (miner_id, pool_id, balance)
+                    VALUES (?, ?, 0)
+                    ON DUPLICATE KEY UPDATE
+                        miner_id = VALUES(miner_id),
+                        pool_id = VALUES(pool_id)
+                    "#,
+                )
+                .bind::<Integer, _>(miner_id)
+                .bind::<Integer, _>(pool_id)
+                .execute(conn)?;
+
+                // 查询插入或更新后的记录
+                diesel::sql_query(
+                    "SELECT id, miner_id, pool_id, balance FROM rewards WHERE miner_id = ? AND pool_id = ?",
+                )
+                .bind::<Integer, _>(miner_id)
+                .bind::<Integer, _>(pool_id)
+                .get_result::<models::Reward>(conn)
+            }).await;
+
+            match res {
+                Ok(interaction) => match interaction {
+                    Ok(query) => {
+                        return Ok(query);
+                    }
+                    Err(e) => {
+                        error!("{:?}", e);
+                        return Err(AppDatabaseError::QueryFailed);
+                    }
+                },
+                Err(e) => {
+                    error!("{:?}", e);
+                    return Err(AppDatabaseError::InteractionFailed);
+                }
+            }
+        } else {
+            return Err(AppDatabaseError::FailedToGetConnectionFromPool);
+        }
+    }
+
     pub async fn add_new_claim(&self, claim: models::InsertClaim) -> Result<(), AppDatabaseError> {
         if let Ok(db_conn) = self.connection_pool.get().await {
             let res = db_conn.interact(move |conn: &mut MysqlConnection| {

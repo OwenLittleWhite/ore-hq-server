@@ -1817,13 +1817,28 @@ async fn ws_handler(
         let miner;
         match db_miner {
             Ok(db_miner) => {
+                let miner_id = db_miner.id;
                 miner = db_miner;
+                let wallet_pubkey = wallet.pubkey();
+                let pool = app_database
+                    .get_pool_by_authority_pubkey(wallet_pubkey.to_string())
+                    .await
+                    .unwrap();
+                match app_database.get_or_create_reward(miner_id, pool.id).await {
+                    Ok(reward) => {
+                        // 处理成功的情况
+                    }
+                    Err(_) => {
+                        error!("Failed to get or create reward");
+                        return Err((StatusCode::INTERNAL_SERVER_ERROR, "Internal Server Error"));
+                    }
+                }
             }
             Err(_) => {
                 error!("DB Error: Catch all. should auto register miner");
                 // 如果有白名单，判断是否在白名单
                 if let Some(whitelist) = &app_config.whitelist {
-                    if !whitelist.contains(&user_pubkey) {
+                    if !whitelist.contains(&user_pubkey) { 
                         return Err((StatusCode::UNAUTHORIZED, "pubkey is not authorized to mine"));
                     }
                 }

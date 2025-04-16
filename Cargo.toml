@@ -44,3 +44,4 @@ uuid = { version = "1.10.0", features = ["v4"] }
 steel = { features = ["spl"], version = "4.0" }
 reqwest = "0.11"
 sysinfo = "0.32.0"
+diesel_cli = { version = "2.0.0", default-features = false, features = ["mysql"] }
